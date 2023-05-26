@@ -182,6 +182,7 @@ async fn validator(
 
 #[actix_web::main]
 async fn main() -> std::io::Result<()> {
+    println!("zbx-np {}. ©All rights in reserve.", APP_VERSION);
 
     let port = CONFIG_JSON["settings"][0]["port"].as_u64().unwrap_or(8000);
     // Start the config job in a new thread
