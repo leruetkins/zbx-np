@@ -215,13 +215,19 @@ async fn zabbix_handler(query: web::Query<UrlQuery>) -> HttpResponse {
         "item": data.item,
     });
 
-    let show_result = send_to_zabbix(&response_json.to_string())
-        .unwrap_or_else(|err| {
+    let show_result = send_to_zabbix(&response_json.to_string());
+    let decoded_show_result = match show_result {
+        Ok(show_result) => decode_unicode_escape_sequences(&show_result),
+        Err(err) => {
             eprintln!("Error sending data to Zabbix server: {}", err);
-            "".to_string() // Return an empty string in case of error
-        });
-
-    let decoded_show_result = decode_unicode_escape_sequences(&show_result);
+            // Create an error response JSON
+            let error_response = json!({
+                "error": "Failed to send data to Zabbix server",
+                "details": err.to_string(),
+            });
+            return HttpResponse::InternalServerError().json(error_response);
+        }
+    };
 
     let mut response_data = json!({
         "data": response_json,
@@ -240,6 +246,7 @@ async fn zabbix_handler(query: web::Query<UrlQuery>) -> HttpResponse {
     HttpResponse::Ok().json(response_data)
 }
 
+
 #[post("/zabbix")]
 async fn zabbix_post_handler(body: web::Json<ZabbixRequestBody>) -> HttpResponse {
     let response_json = json!({
@@ -249,13 +256,19 @@ async fn zabbix_post_handler(body: web::Json<ZabbixRequestBody>) -> HttpResponse
     });
     println!("{}", response_json);
 
-    let show_result = send_to_zabbix(&response_json.to_string())
-        .unwrap_or_else(|err| {
+    let show_result = send_to_zabbix(&response_json.to_string());
+    let decoded_show_result = match show_result {
+        Ok(show_result) => decode_unicode_escape_sequences(&show_result),
+        Err(err) => {
             eprintln!("Error sending data to Zabbix server: {}", err);
-            "".to_string() // Return an empty string in case of error
-        });
-
-    let decoded_show_result = decode_unicode_escape_sequences(&show_result);
+            // Create an error response JSON
+            let error_response = json!({
+                "error": "Failed to send data to Zabbix server",
+                "details": err.to_string(),
+            });
+            return HttpResponse::InternalServerError().json(error_response);
+        }
+    };
 
     let mut response_data = json!({
         "data": response_json,
@@ -273,6 +286,7 @@ async fn zabbix_post_handler(body: web::Json<ZabbixRequestBody>) -> HttpResponse
 
     HttpResponse::Ok().json(response_data)
 }
+
 
 fn decode_unicode_escape_sequences(input: &str) -> String {
     let prefix = "ZBXD\u{0001}Z\u{0000}\u{0000}\u{0000}\u{0000}\u{0000}\u{0000}\u{0000}";
