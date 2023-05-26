@@ -3,7 +3,7 @@ It's zabbix relay that can send data to your zabbix server using post or get req
 
 # How to use:
 
-Before use, create a host with an irapper item:
+Before use, create a host with an zabbix trapper item:
 
 https://www.zabbix.com/documentation/6.0/en/manual/config/items/itemtypes/trapper
 
