@@ -1,5 +1,5 @@
 # zbx-np
-It's zabbix relay that can send data to your zabbix server using post or get requests.
+It's zabbix relay that can send data to your zabbix server using post or get requests. Now everything that can send http requests can send data to Zabbix.
 
 # How to use:
 
