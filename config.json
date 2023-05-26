@@ -1,33 +1,9 @@
 {
-  "node": {
-    "name": "Test-pc",
-    "place": "Home",
-    "description": "Delete files from Temp directory"
-  },
   "settings": [
     {
-      "period": 15,
       "port":8000,
-      "login": "pavel",
+      "login": "admin",
       "password": "admin"
-    }
-  ],
-  "endpoints": [
-    {
-      "name": "Temp",
-      "path": "C:\\Temp\\",
-      "count": 10,
-      "enabled":false
-    },
-    {
-      "name": "Temp1",
-      "path": "C:\\Temp1\\",
-      "count": 10,
-      "enabled":false,
-      "filter":[
-        "folder",
-        "file.txt"
-      ]
     }
   ]
 }
