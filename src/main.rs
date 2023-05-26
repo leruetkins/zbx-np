@@ -4,11 +4,12 @@ use serde::{Deserialize, Serialize};
 use std::env;
 use std::fs;
 use once_cell::sync::Lazy; 
-use actix_web::{get,web, HttpResponse, Result, App, HttpServer};
+use actix_web::{get,web, HttpResponse, Result, App, HttpServer, post};
 use actix_web::{dev::ServiceRequest, Error};
 use actix_web_httpauth::{extractors::basic::BasicAuth, middleware::HttpAuthentication};
 use actix_web::error::ErrorUnauthorized;
 use serde_json::json;
+use serde_json::Value;
 
 const APP_VERSION: &str = env!("CARGO_PKG_VERSION");
 static CONFIG_JSON: Lazy<serde_json::Value> = Lazy::new(|| {
@@ -18,12 +19,20 @@ static CONFIG_JSON: Lazy<serde_json::Value> = Lazy::new(|| {
 const ZABBIX_MAX_LEN: usize = 300;
 const ZABBIX_TIMEOUT: u64 = 1000;
 
+#[derive(Deserialize)]
+struct ZabbixRequestBody {
+    item: Vec<Item>,
+    item_host_name: String,
+    zabbix_server: String,
+}
+
 #[derive(Deserialize, Serialize)]
 struct Data {
     zabbix_server: String,
     item_host_name: String,
     item: Vec<Item>,
 }
+
 
 #[derive(Deserialize, Serialize)]
 struct Item {
@@ -55,15 +64,14 @@ impl ZabbixSender {
     }
 
 
-    pub fn send(&mut self) -> Result<(), std::io::Error> {
-        let mut ret_value = 1;
+    pub fn send(&mut self) -> Result<String, std::io::Error> {
         let packet_len = self.create_zabbix_packet()?;
         let mut stream = TcpStream::connect(self.zabbix_server_addr)?;
         stream.write_all(&self.zabbix_packet[..packet_len])?;
-
+    
         let mut buf = [0; 1024];
         let mut bytes_read = 0;
-
+    
         for _ in 0..ZABBIX_TIMEOUT / 10 {
             if let Ok(n) = stream.read(&mut buf) {
                 bytes_read = n;
@@ -71,24 +79,21 @@ impl ZabbixSender {
             }
             std::thread::sleep(std::time::Duration::from_millis(10));
         }
-
+    
         if bytes_read > 0 {
-            let result = std::str::from_utf8(&buf[..bytes_read]).unwrap();
-            println!("result = {}", result);
-            ret_value = 0;
+            let show_result = std::str::from_utf8(&buf[..bytes_read]).unwrap();
+            return Ok(show_result.to_string()); // Return the show_result value
         } else {
             println!("No result");
         }
-
-        if ret_value != 0 {
-            Err(std::io::Error::new(
-                std::io::ErrorKind::Other,
-                "Send operation failed",
-            ))
-        } else {
-            Ok(())
-        }
+    
+        Err(std::io::Error::new(
+            std::io::ErrorKind::Other,
+            "Send operation failed",
+        ))
     }
+    
+    
 
     pub fn clear_item(&mut self) {
         self.zabbix_item_list.clear();
@@ -133,7 +138,7 @@ impl ZabbixSender {
 
         let packet_len = 13 + json_len;
 
-        println!("request = {}", String::from_utf8_lossy(&self.zabbix_packet[..packet_len]));
+        println!("Request = {}", String::from_utf8_lossy(&self.zabbix_packet[..packet_len]));
 
         Ok(packet_len)
     }
@@ -190,6 +195,7 @@ async fn main() -> std::io::Result<()> {
             .service(index)
             .service(favicon)
             .service(zabbix_handler)
+            .service(zabbix_post_handler)
 
     })
     .bind(format!("0.0.0.0:{}", port))?
@@ -205,16 +211,101 @@ async fn zabbix_handler(query: web::Query<UrlQuery>) -> HttpResponse {
     let response_json = json!({
         "zabbix_server": data.zabbix_server,
         "item_host_name": data.item_host_name,
-        "items": data.item,
+        "item": data.item,
     });
 
-    send_to_zabbix(&response_json.to_string());
+    let show_result = send_to_zabbix(&response_json.to_string())
+        .unwrap_or_else(|err| {
+            eprintln!("Error sending data to Zabbix server: {}", err);
+            "".to_string() // Return an empty string in case of error
+        });
 
-    HttpResponse::Ok().json(response_json)
+    let decoded_show_result = decode_unicode_escape_sequences(&show_result);
+
+    let mut response_data = json!({
+        "data": response_json,
+        "result": decoded_show_result
+    });
+
+    // Convert the "show_result" field to a JSON value
+    if let Some(show_result_value) = response_data.get_mut("result") {
+        if let Some(show_result_str) = show_result_value.as_str() {
+            if let Ok(show_result_json) = serde_json::from_str(show_result_str) {
+                *show_result_value = Value::Object(show_result_json);
+            }
+        }
+    }
+
+    HttpResponse::Ok().json(response_data)
 }
 
-fn send_to_zabbix(response_json: &str) {
-    
+#[post("/zabbix")]
+async fn zabbix_post_handler(body: web::Json<ZabbixRequestBody>) -> HttpResponse {
+    let response_json = json!({
+        "zabbix_server": body.zabbix_server,
+        "item_host_name": body.item_host_name,
+        "item": body.item,
+    });
+    println!("{}", response_json);
+
+    let show_result = send_to_zabbix(&response_json.to_string())
+        .unwrap_or_else(|err| {
+            eprintln!("Error sending data to Zabbix server: {}", err);
+            "".to_string() // Return an empty string in case of error
+        });
+
+    let decoded_show_result = decode_unicode_escape_sequences(&show_result);
+
+    let mut response_data = json!({
+        "data": response_json,
+        "result": decoded_show_result
+    });
+
+    // Convert the "show_result" field to a JSON value
+    if let Some(show_result_value) = response_data.get_mut("result") {
+        if let Some(show_result_str) = show_result_value.as_str() {
+            let show_result_json: Value = serde_json::from_str(show_result_str)
+                .unwrap_or_else(|_| panic!("Failed to parse show_result as JSON"));
+            *show_result_value = show_result_json;
+        }
+    }
+
+    HttpResponse::Ok().json(response_data)
+}
+
+fn decode_unicode_escape_sequences(input: &str) -> String {
+    let prefix = "ZBXD\u{0001}Z\u{0000}\u{0000}\u{0000}\u{0000}\u{0000}\u{0000}\u{0000}";
+    let stripped_input = input.strip_prefix(prefix).unwrap_or(input);
+    let mut decoded = String::new();
+    let mut chars = stripped_input.chars().fuse();
+
+    while let Some(ch) = chars.next() {
+        if ch == '\\' {
+            if let Some('u') = chars.next() {
+                let unicode_sequence: String = chars
+                    .by_ref()
+                    .take(4)
+                    .collect();
+
+                if let Ok(unicode_value) = u32::from_str_radix(&unicode_sequence, 16) {
+                    if let Some(unicode_char) = std::char::from_u32(unicode_value) {
+                        decoded.push(unicode_char);
+                    } else {
+                        decoded.push_str(&format!("\\u{}", unicode_sequence));
+                    }
+                } else {
+                    decoded.push_str(&format!("\\u{}", unicode_sequence));
+                }
+                continue;
+            }
+        }
+        decoded.push(ch);
+    }
+
+    decoded
+}
+
+fn send_to_zabbix(response_json: &str) -> Result<String, std::io::Error> {
     let response_data: serde_json::Value = serde_json::from_str(response_json).unwrap();
 
     let zabbix_server = response_data["zabbix_server"].as_str().unwrap();
@@ -223,7 +314,7 @@ fn send_to_zabbix(response_json: &str) {
         .as_str()
         .unwrap_or_else(|| panic!("Failed to extract item_host_name"))
         .to_string();
-    let items = response_data["items"].as_array().unwrap();
+    let items = response_data["item"].as_array().unwrap();
 
     let mut zabbix_sender = ZabbixSender::new(zabbix_server_addr, zabbix_item_host_name);
     for item in items {
@@ -232,9 +323,12 @@ fn send_to_zabbix(response_json: &str) {
         zabbix_sender.add_item(item_name.to_string(), item_value);
     }
 
-    if let Err(err) = zabbix_sender.send() {
-        eprintln!("Error sending data to Zabbix server: {}", err);
-    }
+    let show_result = zabbix_sender.send()?; // Propagate the error from zabbix_sender.send()
+
+    // Handle the show_result value as needed
+    println!("Result = {}", show_result);
+
+    Ok(show_result) // Return the show_result value
 }
 
-// 1111
+// 2222
