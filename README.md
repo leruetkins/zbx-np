@@ -7,10 +7,10 @@ Before use, create a host with an zabbix trapper item:
 
 https://www.zabbix.com/documentation/6.0/en/manual/config/items/itemtypes/trapper
 
-# Use get request: 
+# Use GET request: 
 http://localhost:8000/zabbix?data={"item":[{"key":"voltage","value":544},{"key":"potenciometr","value":4459},{"key":"button","value":4459}],"item_host_name":"esp8266-ar","zabbix_server":"192.168.243.229:10051"}
 
-# Use post request: 
+# Use POST request: 
 http://localhost:8000/zabbix 
 
 with body:
