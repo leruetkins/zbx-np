@@ -10,6 +10,7 @@ use actix_web_httpauth::{extractors::basic::BasicAuth, middleware::HttpAuthentic
 use actix_web::error::ErrorUnauthorized;
 use serde_json::json;
 use serde_json::Value;
+use serde_json::Number;
 
 const APP_VERSION: &str = env!("CARGO_PKG_VERSION");
 static CONFIG_JSON: Lazy<serde_json::Value> = Lazy::new(|| {
@@ -37,7 +38,7 @@ struct Data {
 #[derive(Deserialize, Serialize)]
 struct Item {
     key: String,
-    value: i32,
+    value: Number,
 }
 
 #[derive(Deserialize)]
@@ -334,7 +335,18 @@ fn send_to_zabbix(response_json: &str) -> Result<String, std::io::Error> {
     let mut zabbix_sender = ZabbixSender::new(zabbix_server_addr, zabbix_item_host_name);
     for item in items {
         let item_name = item["key"].as_str().unwrap();
-        let item_value = item["value"].as_i64().unwrap().to_string();
+        let item_value = match &item["value"] {
+            Value::Number(n) => {
+                if let Some(int_value) = n.as_i64() {
+                    int_value.to_string()
+                } else if let Some(float_value) = n.as_f64() {
+                    float_value.to_string()
+                } else {
+                    panic!("Invalid value type for item: {}", item_name);
+                }
+            }
+            _ => panic!("Invalid value type for item: {}", item_name),
+        };
         zabbix_sender.add_item(item_name.to_string(), item_value);
     }
 
