@@ -442,7 +442,6 @@ fn mqtt_connect() -> mqtt::Result<()> {
     println!("Connecting to host: '{}'", host);
 
     let zabbix_topic = CONFIG_JSON["settings"]["mqtt"]["topic"].as_str().unwrap();
-    
 
     let random_name = generate_random_name();
     let random_name_result = format!("zabx-np_{}", random_name);
@@ -549,44 +548,9 @@ fn mqtt_connect() -> mqtt::Result<()> {
                         eprintln!("Failed to parse payload as JSON object: {}", err);
                         // Handle the parsing error
                     }
-                if (now - zabbix_last_msg) > Duration::from_millis((period).try_into().unwrap())
-                {
-                    let data: Result<Data, _> = serde_json::from_str(&payload_str);
-                    if let Ok(data) = data {
-                        let response_json = json!({
-                            "zabbix_server": data.zabbix_server,
-                            "item_host_name": data.item_host_name,
-                            "item": data.item,
-                        });
-                        let show_result = send_to_zabbix(&response_json.to_string());
-                        let decoded_show_result = match show_result {
-                            Ok(show_result) => decode_unicode_escape_sequences(&show_result),
-                            Err(err) => {
-                                eprintln!("Error sending data to Zabbix server: {}", err);
-                                // Create an error response JSON
-                                return;
-                            }
-                        };
-                        let mut response_data = json!({
-                            "data": response_json,
-                            "result": decoded_show_result
-                        });
-                        // Convert the "show_result" field to a JSON value
-                        if let Some(show_result_value) = response_data.get_mut("result") {
-                            if let Some(show_result_str) = show_result_value.as_str() {
-                                if let Ok(show_result_json) = serde_json::from_str(show_result_str)
-                                {
-                                    *show_result_value = Value::Object(show_result_json);
-                                }
-                            }
-                        }
-                    } else if let Err(err) = data {
-                        eprintln!("Failed to parse payload as JSON object: {}", err);
-                        // Handle the parsing error
-                    }
                     zabbix_last_msg = Instant::now();
                 }
-            }}
+            }
         }
     });
 
