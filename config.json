@@ -4,6 +4,14 @@
       "port":8000,
       "login": "admin",
       "password": "admin"
+    },
+    "mqtt": {
+      "enabled": true,
+      "url": "mqtts://address.s2.eu.hivemq.cloud:8883",
+      "login": "login",
+      "password": "password",
+      "period":10,
+      "topic": "dk40/zabbix/test"
     }
   ]
 }
