@@ -201,7 +201,7 @@ async fn validator(
 
 #[actix_web::main]
 async fn main() -> std::io::Result<()> {
-    println!("zbx-np {}. ©All rights in reserve.", APP_VERSION);
+    println!("zbx-np {}. �All rights in reserve.", APP_VERSION);
 
     let port = CONFIG_JSON["settings"]["http"]["port"]
         .as_u64()
@@ -432,16 +432,9 @@ fn on_connect_failure(cli: &mqtt::AsyncClient, _msgid: u16, rc: i32) {
 }
 
 fn mqtt_connect() -> mqtt::Result<()> {
-<<<<<<< HEAD
     let period = CONFIG_JSON["settings"]["mqtt"]["period"].as_i64().unwrap() * 1000;
     let period_duration = Duration::from_millis(period as u64) * 1000;
     let mut zabbix_last_msg = Instant::now() - period_duration;
-=======
-    let period = CONFIG_JSON["settings"]["mqtt"]["period"].as_i64().unwrap()*1000;
-    let period_duration = Duration::from_millis(period as u64)*1000;
-    let mut zabbix_last_msg = Instant::now() - period_duration;
-    println!("zabbix_last_msg: {:?}", zabbix_last_msg);
->>>>>>> 266d493 (Period addrd)
     let host = CONFIG_JSON["settings"]["mqtt"]["url"]
         .as_str()
         .unwrap()
@@ -501,7 +494,6 @@ fn mqtt_connect() -> mqtt::Result<()> {
             let payload_str = msg.payload_str();
             if topic == zabbix_topic {
                 let now = Instant::now();
-<<<<<<< HEAD
                 if (now - zabbix_last_msg) > Duration::from_millis((period).try_into().unwrap()) {
                     let current_datetime = Local::now();
                     let formatted_datetime = current_datetime.format("%H:%M:%S %d-%m-%Y");
@@ -557,7 +549,6 @@ fn mqtt_connect() -> mqtt::Result<()> {
                         eprintln!("Failed to parse payload as JSON object: {}", err);
                         // Handle the parsing error
                     }
-=======
                 if (now - zabbix_last_msg) > Duration::from_millis((period).try_into().unwrap())
                 {
                     let data: Result<Data, _> = serde_json::from_str(&payload_str);
@@ -589,15 +580,13 @@ fn mqtt_connect() -> mqtt::Result<()> {
                                 }
                             }
                         }
-                        println!("{} - {}", topic, payload_str);
                     } else if let Err(err) = data {
                         eprintln!("Failed to parse payload as JSON object: {}", err);
                         // Handle the parsing error
                     }
->>>>>>> 266d493 (Period addrd)
                     zabbix_last_msg = Instant::now();
                 }
-            }
+            }}
         }
     });
 
