@@ -29,10 +29,15 @@ All settings are stored in config.json, edit it for yours gole:
 "password": "admin" - Basic auth credential password.
 
 "enabled": true -  enable or disable using MQTT,
+
 "url": "mqtts://address.s2.eu.hivemq.cloud:8883" - your MQTT broker address, it use TLS withot certeficate,
+
 "login": "login" - your MQTT login,
+
 "password":  - your MQTT password,
+
 "period":10 - the frequency in seconds with which data from the topic will be collected,
+
 "topic": "/zabbix/test" - your MQTT topic.
 
 Don't forget to put config.json near zbx-np app.
