@@ -28,13 +28,6 @@ const ZABBIX_TIMEOUT: u64 = 1000;
 
 const QOS: &[i32] = &[1, 1];
 
-#[derive(Deserialize)]
-struct ZabbixRequestBody {
-    item: Vec<Item>,
-    item_host_name: String,
-    zabbix_server: String,
-}
-
 #[derive(Deserialize, Serialize)]
 struct Data {
     zabbix_server: String,
@@ -286,7 +279,7 @@ async fn zabbix_handler(req: HttpRequest, query: web::Query<UrlQuery>) -> HttpRe
 }
 
 #[post("/zabbix")]
-async fn zabbix_post_handler(req: HttpRequest, body: web::Json<ZabbixRequestBody>) -> HttpResponse {
+async fn zabbix_post_handler(req: HttpRequest, body: web::Json<Data>) -> HttpResponse {
     let current_datetime = Local::now();
     let formatted_datetime = current_datetime.format("%H:%M:%S %d-%m-%Y");
     println!("\n[{}]", formatted_datetime);
@@ -444,7 +437,7 @@ fn mqtt_connect() -> mqtt::Result<()> {
     let zabbix_topic = CONFIG_JSON["settings"]["mqtt"]["topic"].as_str().unwrap();
 
     let random_name = generate_random_name();
-    let random_name_result = format!("zabx-np_{}", random_name);
+    let random_name_result = format!("zbx-np_{}", random_name);
     println!("Client ID: {}", random_name_result);
     let cli = mqtt::CreateOptionsBuilder::new()
         .server_uri(&host)
