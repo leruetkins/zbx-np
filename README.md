@@ -1,6 +1,7 @@
 # zbx-np
-It's zabbix relay that can send data to your zabbix server using post or get requests. Now everything that can send http requests can send data to **Zabbix**. Now zbx-np supports get data form MQTT. For this purpose it uses **paho_mqtt** library witch require libcrypto-3-x64.dll and libssl-3-x64.dll libraries from OpenSSL project. Just put tehese files near the **zbx-np**.
-**zbx-np** configured to use **[hivemq]**(https://www.hivemq.com/) broker. So you can insert your credentials and settings to config.json. Maybe other brokers, local or cloud will work too, but zbx-np specifically works with hivemq. You can modify code to use another mqtt library, for example **[rumqtt]**(https://github.com/bytebeamio/rumqtt) to do not use additionals libraries.
+It's zabbix relay that can send data to your zabbix server using post or get requests. Now everything that can send http requests can send data to **Zabbix**. Now zbx-np supports get data form MQTT. For this purpose it uses **paho_mqtt** library witch require libcrypto-3-x64.dll and libssl-3-x64.dll libraries from OpenSSL project. Just put tehese files near the app.
+
+**zbx-np** configured to use **hivemq**(https://www.hivemq.com/) broker. So you can insert your credentials and settings to config.json. Maybe other brokers, local or cloud will work too, but zbx-np specifically works with hivemq. You can modify code to use another mqtt library, for example **rumqtt**(https://github.com/bytebeamio/rumqtt) to do not use additionals libraries.
 
 # How to use:
 
