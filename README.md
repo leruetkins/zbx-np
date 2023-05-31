@@ -42,4 +42,4 @@ All settings are stored in config.json, edit it for yours gole:
 
 Don't forget to put config.json near zbx-np app.
 
-You can install bc-np as system service using **nssm** https://nssm.cc/download.
+You can install **zbx-np** as system service using **nssm** https://nssm.cc/download.
