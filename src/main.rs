@@ -427,7 +427,7 @@ fn on_connect_failure(cli: &mqtt::AsyncClient, _msgid: u16, rc: i32) {
 fn mqtt_connect() -> mqtt::Result<()> {
     let period = CONFIG_JSON["settings"]["mqtt"]["period"].as_i64().unwrap() * 1000;
     let period_duration = Duration::from_millis(period as u64) * 1000;
-    let mut zabbix_last_msg = Instant::now() - period_duration;
+    let mut zabbix_last_msg = Instant::now() - period_duration - Duration::from_millis(1000);
     let host = CONFIG_JSON["settings"]["mqtt"]["url"]
         .as_str()
         .unwrap()
