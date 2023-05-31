@@ -201,7 +201,7 @@ async fn validator(
 
 #[actix_web::main]
 async fn main() -> std::io::Result<()> {
-    println!("zbx-np {}. �All rights in reserve.", APP_VERSION);
+    println!("zbx-np {}. ©All rights in reserve.", APP_VERSION);
 
     let port = CONFIG_JSON["settings"]["http"]["port"]
         .as_u64()
