@@ -222,12 +222,15 @@ async fn main() -> std::io::Result<()> {
     .await
 }
 
-#[get("/zabbix")]
-async fn zabbix_handler(req: HttpRequest, query: web::Query<UrlQuery>) -> HttpResponse {
+fn print_time_date(){
     let current_datetime = Local::now();
     let formatted_datetime = current_datetime.format("%H:%M:%S %d-%m-%Y");
     println!("\n[{}]", formatted_datetime);
+}
 
+#[get("/zabbix")]
+async fn zabbix_handler(req: HttpRequest, query: web::Query<UrlQuery>) -> HttpResponse {
+    print_time_date();
     if let Some(remote_addr) = req.peer_addr() {
         if let Some(ip_address) = remote_addr.ip().to_string().split(':').next() {
             println!("Received data from HTPP via GET: {}", ip_address);
@@ -280,9 +283,7 @@ async fn zabbix_handler(req: HttpRequest, query: web::Query<UrlQuery>) -> HttpRe
 
 #[post("/zabbix")]
 async fn zabbix_post_handler(req: HttpRequest, body: web::Json<Data>) -> HttpResponse {
-    let current_datetime = Local::now();
-    let formatted_datetime = current_datetime.format("%H:%M:%S %d-%m-%Y");
-    println!("\n[{}]", formatted_datetime);
+    print_time_date();
     if let Some(remote_addr) = req.peer_addr() {
         if let Some(ip_address) = remote_addr.ip().to_string().split(':').next() {
             println!("Received data from HTPP via POST: {}", ip_address);
@@ -425,8 +426,8 @@ fn on_connect_failure(cli: &mqtt::AsyncClient, _msgid: u16, rc: i32) {
 }
 
 fn mqtt_connect() -> mqtt::Result<()> {
-    let period = CONFIG_JSON["settings"]["mqtt"]["period"].as_i64().unwrap() * 1000;
-    let period_duration = Duration::from_millis(period as u64) * 1000;
+    let period = CONFIG_JSON["settings"]["mqtt"]["period"].as_u64().unwrap() * 1000;
+    let period_duration = Duration::from_millis(period) * 1000;
     let mut zabbix_last_msg = Instant::now() - period_duration - Duration::from_millis(1000);
     let host = CONFIG_JSON["settings"]["mqtt"]["url"]
         .as_str()
@@ -487,9 +488,7 @@ fn mqtt_connect() -> mqtt::Result<()> {
             if topic == zabbix_topic {
                 let now = Instant::now();
                 if (now - zabbix_last_msg) > Duration::from_millis((period).try_into().unwrap()) {
-                    let current_datetime = Local::now();
-                    let formatted_datetime = current_datetime.format("%H:%M:%S %d-%m-%Y");
-                    println!("\n[{}]", formatted_datetime);
+                    print_time_date();
                     let data: Result<Data, _> = serde_json::from_str(&payload_str);
                     // let json_obj: Result<Value, serde_json::Error> = serde_json::from_str(&payload_str);
                     match data {
