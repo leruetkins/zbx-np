@@ -1,5 +1,5 @@
 {
-  "settings": [
+  "settings": 
     {
       "port":8000,
       "login": "admin",
@@ -13,5 +13,4 @@
       "period":10,
       "topic": "dk40/zabbix/test"
     }
-  ]
 }
