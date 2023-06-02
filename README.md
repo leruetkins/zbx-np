@@ -5,13 +5,19 @@ It's zabbix relay that can send data to your zabbix server using **POST** or **G
 
 # Compilibg ussue:
 If you have this message while compiling on Windows:
+
 =-=-=-=--=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=
+
   This perl implementation doesn't produce Windows like paths (with backward
   slash directory separators).  Please use an implementation that matches your
   building platform.
+  
 =-=-=-=--=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=
+
   This Perl version: 5.36.0 for x86_64-msys-thread-multi
+  
 =-=-=-=--=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=
+
 Just install https://strawberryperl.com/ and and delete or temporary rename C:\Program Files\Git\usr\bin\perl.exe file. Git's perl can't compile openssl libraries on rust.
 
 # How to use:
