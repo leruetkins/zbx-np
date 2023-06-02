@@ -3,7 +3,7 @@ It's zabbix relay that can send data to your zabbix server using **POST** or **G
 
 **zbx-np** configured to use **hivemq** (https://www.hivemq.com) broker. So you can insert your credentials and settings to config.json. Maybe other brokers, local or cloud will work too, but zbx-np specifically works with hivemq. You can modify code to use another mqtt library, for example **rumqtt** (https://github.com/bytebeamio/rumqtt) to do not use additionals libraries.
 
-# Compilibg ussue:
+# Compiling ussue:
 If you have this message while compiling on Windows:
 
 =-=-=-=--=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=
