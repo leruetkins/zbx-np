@@ -11,6 +11,6 @@
       "login": "login",
       "password": "password",
       "period":10,
-      "topic": "dk40/zabbix/test"
+      "topic": "zabbix/test"
     }
 }
