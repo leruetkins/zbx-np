@@ -18,7 +18,7 @@ If you have this message while compiling on Windows:
   
 =-=-=-=--=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=
 
-Just install https://strawberryperl.com/ and and delete or temporary rename C:\Program Files\Git\usr\bin\perl.exe file. Git's perl can't compile openssl libraries on rust.
+Just install https://strawberryperl.com/ and delete or temporary rename C:\Program Files\Git\usr\bin\perl.exe file. Git's perl can't compile openssl libraries on rust.
 
 # How to use:
 
