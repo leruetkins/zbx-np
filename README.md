@@ -3,6 +3,17 @@ It's zabbix relay that can send data to your zabbix server using **POST** or **G
 
 **zbx-np** configured to use **hivemq** (https://www.hivemq.com) broker. So you can insert your credentials and settings to config.json. Maybe other brokers, local or cloud will work too, but zbx-np specifically works with hivemq. You can modify code to use another mqtt library, for example **rumqtt** (https://github.com/bytebeamio/rumqtt) to do not use additionals libraries.
 
+# Compilibg ussue:
+If you have this message while compiling on Windows:
+=-=-=-=--=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=
+  This perl implementation doesn't produce Windows like paths (with backward
+  slash directory separators).  Please use an implementation that matches your
+  building platform.
+=-=-=-=--=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=
+  This Perl version: 5.36.0 for x86_64-msys-thread-multi
+=-=-=-=--=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=
+Just install https://strawberryperl.com/ and and delete or temporary rename C:\Program Files\Git\usr\bin\perl.exe file. Git's perl can't compile openssl libraries on rust.
+
 # How to use:
 
 Before use, create a host with an zabbix trapper item:
