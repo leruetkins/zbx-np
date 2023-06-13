@@ -210,8 +210,11 @@ async fn main() -> std::io::Result<()> {
     let mqtt_enable = CONFIG_JSON["settings"]["mqtt"]["enabled"]
         .as_bool()
         .unwrap();
-    if mqtt_enable == true {
-        thread::spawn(|| mqtt_connect());
+    if mqtt_enable {
+        thread::Builder::new()
+            .name("mqtt_thread".into())
+            .spawn(mqtt_connect)
+            .expect("Failed to spawn thread");
     }
 
     // Start the HTTP server
