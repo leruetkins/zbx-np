@@ -16,12 +16,18 @@ use std::io::{Read, Write};
 use std::net::{SocketAddr, TcpStream};
 use std::time::Instant;
 use std::{env, thread, time::Duration};
+use lazy_static::lazy_static;
 
 const APP_VERSION: &str = env!("CARGO_PKG_VERSION");
 static CONFIG_JSON: Lazy<serde_json::Value> = Lazy::new(|| {
     let config = fs::read_to_string("config.json").expect("Unable to read config");
     serde_json::from_str(&config).expect("Invalid JSON format")
 });
+
+lazy_static! {
+    static ref RANDOM_NAME: String = generate_random_name();
+}
+
 
 const ZABBIX_MAX_LEN: usize = 300;
 const ZABBIX_TIMEOUT: u64 = 1000;
@@ -194,6 +200,7 @@ async fn validator(
 
 #[actix_web::main]
 async fn main() -> std::io::Result<()> {
+    
     println!("zbx-np {}. ©All rights in reserve.", APP_VERSION);
 
     let port = CONFIG_JSON["settings"]["http"]["port"]
@@ -437,8 +444,7 @@ fn mqtt_connect() -> mqtt::Result<()> {
 
     let zabbix_topic = CONFIG_JSON["settings"]["mqtt"]["topic"].as_str().unwrap();
 
-    let random_name = generate_random_name();
-    let random_name_result = format!("zbx-np_{}", random_name);
+    let random_name_result = format!("zbx-np_{}", RANDOM_NAME.to_string());
     println!("Client ID: {}", random_name_result);
     let cli = mqtt::CreateOptionsBuilder::new()
         .server_uri(&host)
