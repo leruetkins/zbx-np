@@ -16,7 +16,12 @@ use std::io::{Read, Write};
 use std::net::{SocketAddr, TcpStream};
 use std::time::Instant;
 use std::{env, thread, time::Duration};
+use futures::{executor::block_on, stream::StreamExt};
+use std::{process};
 use lazy_static::lazy_static;
+
+const TOPICS: &[&str] = &["dk40/zabbix/test"];
+const QOS: &[i32] = &[1, 1];
 
 const APP_VERSION: &str = env!("CARGO_PKG_VERSION");
 static CONFIG_JSON: Lazy<serde_json::Value> = Lazy::new(|| {
@@ -28,11 +33,9 @@ lazy_static! {
     static ref RANDOM_NAME: String = generate_random_name();
 }
 
-
 const ZABBIX_MAX_LEN: usize = 300;
 const ZABBIX_TIMEOUT: u64 = 1000;
 
-const QOS: &[i32] = &[1, 1];
 
 #[derive(Deserialize, Serialize)]
 struct Data {
@@ -200,7 +203,6 @@ async fn validator(
 
 #[actix_web::main]
 async fn main() -> std::io::Result<()> {
-    
     println!("zbx-np {}. ©All rights in reserve.", APP_VERSION);
 
     let port = CONFIG_JSON["settings"]["http"]["port"]
@@ -211,10 +213,9 @@ async fn main() -> std::io::Result<()> {
         .as_bool()
         .unwrap();
     if mqtt_enable {
-        thread::Builder::new()
-            .name("mqtt_thread".into())
-            .spawn(mqtt_connect)
-            .expect("Failed to spawn thread");
+        tokio::spawn(async {
+            mqtt_connect().await;
+        });
     }
 
     // Start the HTTP server
@@ -415,6 +416,7 @@ fn generate_random_name() -> String {
     random_name
 }
 
+
 fn on_connect_success(cli: &mqtt::AsyncClient, _msgid: u16) {
     println!("Connection succeeded");
 
@@ -435,9 +437,9 @@ fn on_connect_failure(cli: &mqtt::AsyncClient, _msgid: u16, rc: i32) {
     cli.reconnect_with_callbacks(on_connect_success, on_connect_failure);
 }
 
-fn mqtt_connect() -> mqtt::Result<()> {
+fn mqtt_connect_old() -> mqtt::Result<()> {
     let period = CONFIG_JSON["settings"]["mqtt"]["period"].as_u64().unwrap() * 1000;
-    let period_duration = Duration::from_millis(period);
+    let period_duration = Duration::from_millis(period) * 1000;
     let mut zabbix_last_msg = Instant::now() - period_duration - Duration::from_millis(1000);
     let host = CONFIG_JSON["settings"]["mqtt"]["url"]
         .as_str()
@@ -447,11 +449,10 @@ fn mqtt_connect() -> mqtt::Result<()> {
 
     let zabbix_topic = CONFIG_JSON["settings"]["mqtt"]["topic"].as_str().unwrap();
 
-    let random_name_result = format!("zbx-np_{}", RANDOM_NAME.to_string());
-    println!("Client ID: {}", random_name_result);
-    let cli = mqtt::CreateOptionsBuilder::new()
+    
+    let mut cli = mqtt::CreateOptionsBuilder::new()
         .server_uri(&host)
-        .client_id(random_name_result)
+        .client_id("random_name_result")
         .max_buffered_messages(100)
         .create_client()?;
 
@@ -560,4 +561,156 @@ fn mqtt_connect() -> mqtt::Result<()> {
     }
 }
 
-//3333
+async fn mqtt_connect() {
+    // Initialize the logger from the environment
+
+    let host = CONFIG_JSON["settings"]["mqtt"]["url"]
+        .as_str()
+        .unwrap()
+        .to_string();
+    println!("Connecting to host: '{}'", host);
+
+    let zabbix_topic = CONFIG_JSON["settings"]["mqtt"]["topic"].as_str().unwrap();
+    let random_name_result = format!("zbx-np_{}", RANDOM_NAME.to_string());
+    println!("Client ID: {}", random_name_result);
+    // Create the client. Use an ID for a persistent session.
+    // A real system should try harder to use a unique ID.
+    let create_opts = mqtt::CreateOptionsBuilder::new()
+        .server_uri(host)
+        .client_id(random_name_result)
+        .finalize();
+
+    // Create the client connection
+    let mut cli = mqtt::AsyncClient::new(create_opts).unwrap_or_else(|e| {
+        println!("Error creating the client: {:?}", e);
+        process::exit(1);
+    });
+
+    if let Err(err) = block_on(async {
+        // Get message stream before connecting.
+        let mut strm = cli.get_stream(25);
+
+        let ssl_opts = mqtt::SslOptionsBuilder::new()
+        .enable_server_cert_auth(false)
+        .finalize();
+
+        let login = CONFIG_JSON["settings"]["mqtt"]["login"]
+        .as_str()
+        .unwrap()
+        .to_string();
+
+    let password = CONFIG_JSON["settings"]["mqtt"]["password"]
+        .as_str()
+        .unwrap()
+        .to_string();
+
+        let conn_opts = mqtt::ConnectOptionsBuilder::new()
+       .ssl_options(ssl_opts)
+       .user_name(login)
+       .password(password)
+       .keep_alive_interval(Duration::from_secs(20))
+       .clean_session(false)
+       // .will_message(lwt)
+       .finalize();
+
+        // Make the connection to the broker
+        println!("Connecting to the MQTT server...");
+        cli.connect(conn_opts).await?;
+        cli.set_connected_callback(|_cli: &mqtt::AsyncClient| {
+           println!("Connected.");
+       });
+
+        println!("Subscribing to topics: {}", zabbix_topic);
+        cli.subscribe(zabbix_topic, QOS[0]).await?;
+
+        // Just loop on incoming messages.
+        println!("Waiting for messages...");
+
+        // Note that we're not providing a way to cleanly shut down and
+        // disconnect. Therefore, when you kill this app (with a ^C or
+        // whatever) the server will get an unexpected drop and then
+        // should emit the LWT message.
+
+        while let Some(msg_opt) = strm.next().await {
+            if let Some(msg) = msg_opt {
+                println!("Topic: {}", msg.topic());
+                println!("Payload: {}", msg.payload_str());
+                let topic = msg.topic();
+                let payload_str = msg.payload_str();
+                if topic == zabbix_topic {
+                    print_time_date();
+                        let data: Result<Data, _> = serde_json::from_str(&payload_str);
+                        // let json_obj: Result<Value, serde_json::Error> = serde_json::from_str(&payload_str);
+                        match data {
+                            Ok(ref obj) => {
+                                let json_string = serde_json::to_string(&obj);
+                                match json_string {
+                                    Ok(string) => {
+                                        // println!("{}", string);
+                                        println!("Received data from MQTT:\n{} - {}", topic, string);
+                                    }
+                                    Err(ref e) => {
+                                        println!("Failed to convert JSON to string: {}", e);
+                                    }
+                                }
+                            }
+                            Err(ref e) => {
+                                println!("Failed to parse JSON: {}", e);
+                            }
+                        }
+                        if let Ok(data) = data {
+                            let response_json = json!({
+                                "zabbix_server": data.zabbix_server,
+                                "item_host_name": data.item_host_name,
+                                "item": data.item,
+                            });
+                            let show_result = send_to_zabbix(&response_json.to_string());
+                            let decoded_show_result = match &show_result {
+                                Ok(result) => decode_unicode_escape_sequences(&result),
+                                Err(err) => {
+                                    // Handle the error here, e.g., log or display an error message
+                                    eprintln!("Error: {:?}", err);
+                                    // Provide a default value or return early, depending on your logic
+                                    // For example, you can return an empty string:
+                                    String::new()
+                                }
+                            };
+                            let mut response_data = json!({
+                                "data": response_json,
+                                "result": decoded_show_result
+                            });
+                            // Convert the "show_result" field to a JSON value
+                            if let Some(show_result_value) = response_data.get_mut("result") {
+                                if let Some(show_result_str) = show_result_value.as_str() {
+                                    if let Ok(show_result_json) = serde_json::from_str(show_result_str)
+                                    {
+                                        *show_result_value = Value::Object(show_result_json);
+                                    }
+                                }
+                            }
+                        } else if let Err(err) = data {
+                            eprintln!("Failed to parse payload as JSON object: {}", err);
+                            // Handle the parsing error
+                        }
+                    }
+                
+            }
+            else {
+                // A "None" means we were disconnected. Try to reconnect...
+                println!("Lost connection. Attempting reconnect.");
+                while let Err(err) = cli.reconnect().await {
+                    println!("Error reconnecting: {}", err);
+                    // For tokio use: tokio::time::delay_for()
+                    async_std::task::sleep(Duration::from_millis(1000)).await;
+                }
+            }
+        }
+
+        // Explicit return type for the async block
+        Ok::<(), mqtt::Error>(())
+    }) {
+        eprintln!("{}", err);
+    }
+}
+
+//4444
