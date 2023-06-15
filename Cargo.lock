@@ -87,7 +87,6 @@ version = "2.8.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "15265b6b8e2347670eb363c47fc8c75208b4a4994b27192f345fcbe707804f3e"
 dependencies = [
- "actix-macros",
  "futures-core",
  "tokio",
 ]
@@ -1830,9 +1829,8 @@ checksum = "1a515f5799fe4961cb532f983ce2b23082366b898e52ffbce459c86f67c8378a"
 
 [[package]]
 name = "zbx-np"
-version = "0.4.2"
+version = "0.5.0"
 dependencies = [
- "actix-rt",
  "actix-web",
  "actix-web-httpauth",
  "async-std",
@@ -1846,7 +1844,6 @@ dependencies = [
  "rand",
  "serde",
  "serde_json",
- "tokio",
  "winapi",
 ]
 
