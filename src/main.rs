@@ -199,7 +199,7 @@ async fn main() -> std::io::Result<()> {
 
     let port = CONFIG_JSON["settings"]["http"]["port"]
         .as_u64()
-        .unwrap_or(8000);
+        .unwrap_or(7000);
     // Start the config job in a new thread
     let mqtt_enable = CONFIG_JSON["settings"]["mqtt"]["enabled"]
         .as_bool()
