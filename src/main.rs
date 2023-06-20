@@ -27,6 +27,17 @@ use std::thread;
 use websocket::sync::Server;
 use websocket::{Message, OwnedMessage};
 
+use lazy_static::lazy_static;
+
+
+
+use websocket::sender::Sender;
+use websocket::sender::Writer;
+
+lazy_static! {
+    static ref SENDER: Arc<Mutex<Option<Arc<Mutex<Writer<TcpStream>>>>>> = Arc::new(Mutex::new(None));
+}
+
 const HTML: &'static str = include_str!("websockets.html");
 
 const QOS: &[i32] = &[1, 1];
@@ -151,6 +162,8 @@ impl ZabbixSender {
             "Request = {}",
             String::from_utf8_lossy(&self.zabbix_packet[..packet_len])
         );
+        let message=String::from_utf8_lossy(&self.zabbix_packet[..packet_len]);
+        send_message(&message);
 
         Ok(packet_len)
     }
@@ -629,7 +642,14 @@ fn ws() {
             let (mut receiver, sender) = client.split().unwrap();
 
             // Wrap the sender in an Arc<Mutex<Sender>>
+            // Wrap the sender in an Arc<Mutex<Sender>>
             let client_sender = Arc::new(Mutex::new(sender));
+
+            // Store the client_sender in the global SENDER variable
+            {
+                let mut sender = SENDER.lock().unwrap();
+                *sender = Some(client_sender.clone());
+            }
 
             // Add the client_sender to the clients vector
             {
@@ -684,6 +704,15 @@ fn ws() {
     }
 }
 
+fn send_message(message: &str) {
+    let sender = SENDER.lock().unwrap();
+    if let Some(client_sender) = &*sender {
+        let message = Message::text(message);
+        if let Err(err) = client_sender.lock().unwrap().send_message(&message) {
+            eprintln!("Error sending message: {:?}", err);
+        }
+    }
+}
 
 fn http_handler(_: Request, response: Response<Fresh>) {
     let mut response = response.start().unwrap();
