@@ -6,7 +6,7 @@
       "password": "admin"
     },
     "mqtt": {
-      "enabled": true,    
+      "enabled": false,    
       "id": "test",
       "url": "mqtts://address.s2.eu.hivemq.cloud:8883",
       "login": "login",
