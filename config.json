@@ -1,12 +1,13 @@
 {
   "settings": {
     "http": {
-      "port": 8000,
+      "port": 7000,
       "login": "admin",
       "password": "admin"
     },
     "mqtt": {
-      "enabled": true,
+      "enabled": true,    
+      "id": "test",
       "url": "mqtts://address.s2.eu.hivemq.cloud:8883",
       "login": "login",
       "password": "password",

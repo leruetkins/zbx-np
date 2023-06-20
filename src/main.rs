@@ -5,10 +5,8 @@ use actix_web::{get, post, web, App, HttpResponse, HttpServer, Result};
 use actix_web_httpauth::{extractors::basic::BasicAuth, middleware::HttpAuthentication};
 use chrono::Local;
 use futures::{executor::block_on, stream::StreamExt};
-use lazy_static::lazy_static;
 use once_cell::sync::Lazy;
 use paho_mqtt as mqtt;
-use rand::Rng;
 use serde::{Deserialize, Serialize};
 use serde_json::json;
 use serde_json::Number;
@@ -27,10 +25,6 @@ static CONFIG_JSON: Lazy<serde_json::Value> = Lazy::new(|| {
     let config = fs::read_to_string("config.json").expect("Unable to read config");
     serde_json::from_str(&config).expect("Invalid JSON format")
 });
-
-lazy_static! {
-    static ref RANDOM_NAME: String = generate_random_name();
-}
 
 const ZABBIX_MAX_LEN: usize = 300;
 const ZABBIX_TIMEOUT: u64 = 1000;
@@ -205,7 +199,7 @@ async fn main() -> std::io::Result<()> {
 
     let port = CONFIG_JSON["settings"]["http"]["port"]
         .as_u64()
-        .unwrap_or(8000);
+        .unwrap_or(7000);
     // Start the config job in a new thread
     let mqtt_enable = CONFIG_JSON["settings"]["mqtt"]["enabled"]
         .as_bool()
@@ -409,14 +403,6 @@ fn send_to_zabbix(response_json: &str) -> Result<String, std::io::Error> {
     Ok(show_result) // Return the show_result value
 }
 
-fn generate_random_name() -> String {
-    let mut rng = rand::thread_rng();
-    let random_name: String = (0..10)
-        .map(|_| rng.sample(rand::distributions::Alphanumeric) as char)
-        .collect();
-    random_name
-}
-
 async fn mqtt_connect() {
     let period = CONFIG_JSON["settings"]["mqtt"]["period"].as_u64().unwrap() * 1000;
     let period_duration = Duration::from_millis(period);
@@ -429,13 +415,14 @@ async fn mqtt_connect() {
     println!("Connecting to host: '{}'", host);
 
     let zabbix_topic = CONFIG_JSON["settings"]["mqtt"]["topic"].as_str().unwrap();
-    let random_name_result = format!("zbx-np_{}", RANDOM_NAME.to_string());
-    println!("Client ID: {}", random_name_result);
+    let config_id = CONFIG_JSON["settings"]["mqtt"]["id"].as_str().unwrap();
+    let name_id = format!("zbx-np-{}", config_id);
+    println!("Client ID: {}", name_id);
     // Create the client. Use an ID for a persistent session.
     // A real system should try harder to use a unique ID.
     let create_opts = mqtt::CreateOptionsBuilder::new()
         .server_uri(host)
-        .client_id(random_name_result)
+        .client_id(name_id)
         .finalize();
 
     // Create the client connection
