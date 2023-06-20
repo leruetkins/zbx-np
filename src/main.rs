@@ -35,7 +35,7 @@ use websocket::sender::Sender;
 use websocket::sender::Writer;
 
 lazy_static! {
-    static ref SENDER: Arc<Mutex<Option<Arc<Mutex<Writer<TcpStream>>>>>> = Arc::new(Mutex::new(None));
+    static ref SENDERS: Arc<Mutex<Vec<Arc<Mutex<Writer<TcpStream>>>>>> = Arc::new(Mutex::new(Vec::new()));
 }
 
 const HTML: &'static str = include_str!("websockets.html");
@@ -238,9 +238,10 @@ async fn main() -> std::io::Result<()> {
     }
 
     thread::spawn(move || {
-        ws(); 
+        block_on(async {
+            ws().await;
         });
-
+    });
     // Start the HTTP server
     HttpServer::new(|| {
         let auth = HttpAuthentication::basic(validator);
@@ -598,7 +599,10 @@ async fn mqtt_connect() {
 }
 
 
-fn ws() {
+
+
+
+async fn ws() {
     let clients = Arc::new(Mutex::new(Vec::new()));
 
     // Start listening for http connections
@@ -642,13 +646,12 @@ fn ws() {
             let (mut receiver, sender) = client.split().unwrap();
 
             // Wrap the sender in an Arc<Mutex<Sender>>
-            // Wrap the sender in an Arc<Mutex<Sender>>
             let client_sender = Arc::new(Mutex::new(sender));
 
-            // Store the client_sender in the global SENDER variable
+            // Store the client_sender in the global SENDERS variable
             {
-                let mut sender = SENDER.lock().unwrap();
-                *sender = Some(client_sender.clone());
+                let mut senders = SENDERS.lock().unwrap();
+                senders.push(client_sender.clone());
             }
 
             // Add the client_sender to the clients vector
@@ -683,9 +686,9 @@ fn ws() {
                     }
                     _ => {
                         // Send the message to all clients
-                        let clients = clients.lock().unwrap();
-                        for client_sender in &*clients {
-                            if let Err(err) = client_sender.lock().unwrap().send_message(&message) {
+                        let senders = SENDERS.lock().unwrap();
+                        for sender in &*senders {
+                            if let Err(err) = sender.lock().unwrap().send_message(&message) {
                                 eprintln!("Error sending message to client: {:?}", err);
                             }
                         }
@@ -705,10 +708,10 @@ fn ws() {
 }
 
 fn send_message(message: &str) {
-    let sender = SENDER.lock().unwrap();
-    if let Some(client_sender) = &*sender {
+    let senders = SENDERS.lock().unwrap();
+    for sender in &*senders {
         let message = Message::text(message);
-        if let Err(err) = client_sender.lock().unwrap().send_message(&message) {
+        if let Err(err) = sender.lock().unwrap().send_message(&message) {
             eprintln!("Error sending message: {:?}", err);
         }
     }
