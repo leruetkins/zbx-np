@@ -34,9 +34,7 @@ use lazy_static::lazy_static;
 use websocket::sender::Sender;
 use websocket::sender::Writer;
 
-lazy_static! {
-    static ref SENDERS: Arc<Mutex<Vec<Arc<Mutex<Writer<TcpStream>>>>>> = Arc::new(Mutex::new(Vec::new()));
-}
+
 
 const HTML: &'static str = include_str!("websockets.html");
 
@@ -322,6 +320,8 @@ async fn zabbix_post_handler(req: HttpRequest, body: web::Json<Data>) -> HttpRes
     if let Some(remote_addr) = req.peer_addr() {
         if let Some(ip_address) = remote_addr.ip().to_string().split(':').next() {
             println!("Received data from HTPP via POST: {}", ip_address);
+            let message=format!("Received data from HTPP via POST: {}", ip_address);
+            send_message(&message);
         } else {
             println!("Unable to extract the IP address");
         }
@@ -600,7 +600,11 @@ async fn mqtt_connect() {
 
 
 
+//6666
 
+lazy_static! {
+    static ref SENDERS: Arc<Mutex<Vec<Arc<Mutex<Writer<TcpStream>>>>>> = Arc::new(Mutex::new(Vec::new()));
+}
 
 async fn ws() {
     let clients = Arc::new(Mutex::new(Vec::new()));
@@ -671,6 +675,22 @@ async fn ws() {
 
                 match message {
                     OwnedMessage::Close(_) => {
+                        // Remove the client_sender from the global SENDERS vector
+                        {
+                            let mut senders = SENDERS.lock().unwrap();
+                            if let Some(position) = senders.iter().position(|sender| Arc::ptr_eq(sender, &client_sender)) {
+                                senders.remove(position);
+                            }
+                        }
+                    
+                        // Remove the client_sender from the clients vector
+                        {
+                            let mut clients = clients.lock().unwrap();
+                            if let Some(position) = clients.iter().position(|client| Arc::ptr_eq(client, &client_sender)) {
+                                clients.remove(position);
+                            }
+                        }
+                    
                         let message = Message::close();
                         if let Err(err) = client_sender.lock().unwrap().send_message(&message) {
                             eprintln!("Error sending close message to client {}: {:?}", ip, err);
