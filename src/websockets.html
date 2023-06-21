@@ -73,10 +73,17 @@
             };
 
             socket.onmessage = function(event) {
-                var li = document.createElement("li");
-                li.textContent = event.data;
-                messageList.insertBefore(li, messageList.firstChild);
-            };
+    var message = event.data;
+    var content = message;
+
+    if (content.trim() === '') {
+        messageList.insertAdjacentHTML('afterbegin', '<br>');
+    } else {
+        var li = document.createElement("li");
+        li.innerHTML = content;
+        messageList.insertBefore(li, messageList.firstChild);
+    }
+};
 
             socket.onclose = function() {
                 console.log("WebSocket connection closed. Reconnecting...");
