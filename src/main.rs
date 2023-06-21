@@ -669,6 +669,23 @@ async fn ws() {
                     Ok(msg) => msg,
                     Err(err) => {
                         eprintln!("Error receiving message from client {}: {}", ip, err);
+                        
+                        // Remove the client_sender from the global SENDERS vector
+                        {
+                            let mut senders = SENDERS.lock().unwrap();
+                            if let Some(position) = senders.iter().position(|sender| Arc::ptr_eq(sender, &client_sender)) {
+                                senders.remove(position);
+                            }
+                        }
+                        
+                        // Remove the client_sender from the clients vector
+                        {
+                            let mut clients = clients.lock().unwrap();
+                            if let Some(position) = clients.iter().position(|client| Arc::ptr_eq(client, &client_sender)) {
+                                clients.remove(position);
+                            }
+                        }
+                        
                         break;
                     }
                 };
