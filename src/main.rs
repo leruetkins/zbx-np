@@ -710,7 +710,7 @@ async fn ws() {
 
             println!("Connection from {}", ip);
 
-            let message = Message::text("Connected");
+            let message = Message::text("Connected to server");
             if let Err(err) = client.send_message(&message) {
                 eprintln!("Error sending initial message to client {}: {:?}", ip, err);
                 return;
