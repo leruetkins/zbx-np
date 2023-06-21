@@ -34,6 +34,8 @@ use lazy_static::lazy_static;
 use websocket::sender::Sender;
 use websocket::sender::Writer;
 
+use std::sync::{MutexGuard};
+
 
 
 const HTML: &'static str = include_str!("websockets.html");
@@ -46,8 +48,27 @@ static CONFIG_JSON: Lazy<serde_json::Value> = Lazy::new(|| {
     serde_json::from_str(&config).expect("Invalid JSON format")
 });
 
+
 const ZABBIX_MAX_LEN: usize = 300;
 const ZABBIX_TIMEOUT: u64 = 1000;
+
+
+//7777
+
+lazy_static! {
+    static ref MESSAGES: Mutex<Vec<String>> = Mutex::new(Vec::new());
+}
+
+fn add_message(message: String) {
+    let mut messages = MESSAGES.lock().unwrap();
+    messages.insert(0, message);
+}
+
+fn get_messages() -> MutexGuard<'static, Vec<String>> {
+    MESSAGES.lock().unwrap()
+}
+
+
 
 #[derive(Deserialize, Serialize)]
 struct Data {
@@ -160,8 +181,16 @@ impl ZabbixSender {
             "Request = {}",
             String::from_utf8_lossy(&self.zabbix_packet[..packet_len])
         );
-        let message=String::from_utf8_lossy(&self.zabbix_packet[..packet_len]);
-        send_message(&message);
+        
+        
+
+
+        add_message(String::from_utf8_lossy(&self.zabbix_packet[..packet_len]).to_string());
+
+    
+
+
+
 
         Ok(packet_len)
     }
@@ -255,10 +284,11 @@ async fn main() -> std::io::Result<()> {
     .await
 }
 
-fn print_time_date() {
+fn print_time_date() -> String {
     let current_datetime = Local::now();
-    let formatted_datetime = current_datetime.format("%H:%M:%S %d-%m-%Y");
-    println!("\n[{}]", formatted_datetime);
+    let formatted_datetime = current_datetime.format("[%H:%M:%S %d-%m-%Y]").to_string();
+    println!("\n{}", formatted_datetime);
+    formatted_datetime
 }
 
 #[get("/zabbix")]
@@ -317,11 +347,13 @@ async fn zabbix_handler(req: HttpRequest, query: web::Query<UrlQuery>) -> HttpRe
 #[post("/zabbix")]
 async fn zabbix_post_handler(req: HttpRequest, body: web::Json<Data>) -> HttpResponse {
     print_time_date();
+    let message = print_time_date();
+    add_message(message.to_string());
     if let Some(remote_addr) = req.peer_addr() {
         if let Some(ip_address) = remote_addr.ip().to_string().split(':').next() {
             println!("Received data from HTPP via POST: {}", ip_address);
             let message=format!("Received data from HTPP via POST: {}", ip_address);
-            send_message(&message);
+            add_message(message.to_string());
         } else {
             println!("Unable to extract the IP address");
         }
@@ -334,6 +366,11 @@ async fn zabbix_post_handler(req: HttpRequest, body: web::Json<Data>) -> HttpRes
         "item": body.item,
     });
     println!("{}", response_json);
+   
+    let message = response_json.clone();
+    add_message(message.to_string());
+
+
 
     let show_result = send_to_zabbix(&response_json.to_string());
     let decoded_show_result = match show_result {
@@ -428,6 +465,15 @@ fn send_to_zabbix(response_json: &str) -> Result<String, std::io::Error> {
 
     // Handle the show_result value as needed
     println!("Result = {}", show_result);
+    let message=show_result.clone();
+            add_message(message.to_string());
+
+            let mut messages = get_messages();
+    for message in &*messages {
+        // println!("{}", message);
+        send_message(&message);
+    }
+    messages.clear();
 
     Ok(show_result) // Return the show_result value
 }
@@ -517,6 +563,9 @@ async fn mqtt_connect() {
                     if (now - zabbix_last_msg) > Duration::from_millis((period).try_into().unwrap())
                     {
                         print_time_date();
+                        let message = print_time_date();
+                                add_message(message.to_string());
+
                         let data: Result<Data, _> = serde_json::from_str(&payload_str);
                         match data {
                             Ok(ref obj) => {
@@ -641,7 +690,7 @@ async fn ws() {
 
             println!("Connection from {}", ip);
 
-            let message = Message::text("Hello");
+            let message = Message::text("Connected to server");
             if let Err(err) = client.send_message(&message) {
                 eprintln!("Error sending initial message to client {}: {:?}", ip, err);
                 return;
