@@ -31,7 +31,6 @@ use lazy_static::lazy_static;
 
 
 
-use websocket::sender::Sender;
 use websocket::sender::Writer;
 
 use std::sync::{MutexGuard};
@@ -255,13 +254,29 @@ async fn main() -> std::io::Result<()> {
     let mqtt_enable = CONFIG_JSON["settings"]["mqtt"]["enabled"]
         .as_bool()
         .unwrap();
+
+
+    // Try to use async
+    // use async_std::task;
+    // async fn mqtt_connect() {}
+    //
     // if mqtt_enable {
-    //     tokio::spawn(async {
-    //         mqtt_connect().await;
-    //     });
+    //     thread::Builder::new()
+    //         .name("mqtt_thread".into())
+    //         .spawn(move || {
+    //             task::block_on(async {
+    //                 mqtt_connect().await;
+    //             });
+    //         })
+    //         .expect("Failed to spawn mqtt_thread");
     // }
+
+
+
     if mqtt_enable {
-        mqtt_connect().await;
+        thread::spawn(|| {
+            mqtt_connect();
+        });
     }
 
     thread::spawn(move || {
@@ -467,8 +482,8 @@ fn send_to_zabbix(response_json: &str) -> Result<String, std::io::Error> {
     println!("Result = {}", show_result);
     let message=show_result.clone();
             add_message(message.to_string());
-
             let mut messages = get_messages();
+            send_message("");
     for message in &*messages {
         // println!("{}", message);
         send_message(&message);
@@ -478,7 +493,7 @@ fn send_to_zabbix(response_json: &str) -> Result<String, std::io::Error> {
     Ok(show_result) // Return the show_result value
 }
 
-async fn mqtt_connect() {
+fn mqtt_connect() {
     let period = CONFIG_JSON["settings"]["mqtt"]["period"].as_u64().unwrap() * 1000;
     let period_duration = Duration::from_millis(period);
     let mut zabbix_last_msg = Instant::now() - period_duration - Duration::from_millis(1000);
@@ -579,8 +594,13 @@ async fn mqtt_connect() {
                                         //     topic, string
                                         // );
                                         println!("Received data from MQTT:");
+                                        let message = "Received data from MQTT:";
+                                        add_message(message.to_string());
                                         println!("Topic: {}", msg.topic());
                                         println!("Payload: {}", msg.payload_str());
+                                        let message = msg.payload_str();
+                                        add_message(message.to_string());
+
                                     }
                                     Err(ref e) => {
                                         println!("Failed to convert JSON to string: {}", e);
@@ -690,7 +710,7 @@ async fn ws() {
 
             println!("Connection from {}", ip);
 
-            let message = Message::text("Connected to server");
+            let message = Message::text("Connected");
             if let Err(err) = client.send_message(&message) {
                 eprintln!("Error sending initial message to client {}: {:?}", ip, err);
                 return;
