@@ -58,6 +58,16 @@ fn get_messages() -> MutexGuard<'static, Vec<String>> {
     MESSAGES.lock().unwrap()
 }
 
+fn send_message(message: &str) {
+    let senders = SENDERS.lock().unwrap();
+    for sender in &*senders {
+        let message = Message::text(message);
+        if let Err(err) = sender.lock().unwrap().send_message(&message) {
+            eprintln!("Error sending message: {:?}", err);
+        }
+    }
+}
+
 #[derive(Deserialize, Serialize)]
 struct Data {
     zabbix_server: String,
@@ -788,15 +798,5 @@ async fn ws() {
                 }
             }
         });
-    }
-}
-
-fn send_message(message: &str) {
-    let senders = SENDERS.lock().unwrap();
-    for sender in &*senders {
-        let message = Message::text(message);
-        if let Err(err) = sender.lock().unwrap().send_message(&message) {
-            eprintln!("Error sending message: {:?}", err);
-        }
     }
 }
