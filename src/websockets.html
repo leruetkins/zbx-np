@@ -5,21 +5,24 @@
     <meta charset="utf-8">
     <title>WebSocket Test</title>
     <style>
-
         * {
 
-            margin:0;
-            padding:0;
+            margin: 0;
+            padding: 0;
             box-sizing: border-box;
         }
-        body {
+
+        html, body {
             font-family: Arial, sans-serif;
             padding: 20px;
             background-color: #f2f2f2;
+            height: 90%;
+
         }
 
         .container {
             margin: 0 auto;
+            height: 100%;
         }
 
         .input {
@@ -32,11 +35,13 @@
         }
 
         #message-container {
-            background-color: #fff;
+            position: relative;
+            overflow-y: scroll;
             border: 1px solid #ccc;
             padding: 10px;
-            margin-bottom: 10px;
-            width: 80%;
+            background-color: #fff;
+            font-size: 20px;
+            word-wrap: break-word;
 
         }
 
@@ -46,7 +51,8 @@
             margin: 0;
         }
 
-        .message {
+        .messages {
+            height: 100%;
             margin-bottom: 5px;
         }
 
@@ -54,46 +60,28 @@
             width: 300px;
             padding: 5px;
             font-size: 16px;
-            margin-bottom: 10px;
         }
 
         button {
-            padding: 5px 10px;
+            padding: 10px 10px 10px 10px;
             font-size: 16px;
             background-color: #4caf50;
             color: #fff;
             border: none;
             cursor: pointer;
+            margin: 10px 10px 10px 10px;
         }
 
         button:hover {
             background-color: #45a049;
         }
 
-       
-
-        @media only screen and (max-width: 480px) {
-            body {
-                margin: 10px;
-                max-width: 80%;
+        @media (max-width: 1000px) {
+            #message-container {
+                font-size: 30px;
             }
 
-            #message-input {
-                width: 100%;
-                margin-bottom: 5px;
-            }
-        }
 
-        @media only screen and (max-width: 800px) {
-            body {
-                margin: 10px;
-                max-width: 80%;
-            }
-
-            #message-input {
-                width: 100%;
-                margin-bottom: 5px;
-            }
         }
     </style>
 </head>
