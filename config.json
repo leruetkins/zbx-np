@@ -1,11 +1,12 @@
 {
   "settings": {
     "http": {
-      "port": 7000,
+      "port": 8000,
       "login": "admin",
       "password": "admin"
     },
     "mqtt": {
+<<<<<<< HEAD
       "enabled": true,   
       "id": "test",
       "url": "mqtts://4ab61d0f09cb4deaa461409390b73678.s2.eu.hivemq.cloud:8883",
@@ -13,6 +14,14 @@
       "password": "Hivemq123a456!",
       "period":10,
       "topic": "dk40/zabbix/test"
+=======
+      "enabled": true,
+      "url": "mqtts://address.s2.eu.hivemq.cloud:8883",
+      "login": "login",
+      "password": "password",
+      "period": 10,
+      "topic": "zabbix/test"
+>>>>>>> parent of 8f257f9 (Merge pull request #3 from leruetkins/develop)
     }
   }
 }

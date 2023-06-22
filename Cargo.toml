@@ -15,7 +15,9 @@ winapi = { version = "0.3", features = ["fileapi", "winbase"] }
 actix-web-httpauth = "0.8.0"
 once_cell = "1.17.1"
 base64 = "0.13.0"
+rand = "0.8.5"
 paho-mqtt = { version = "0.12.1", features=["vendored-ssl"] }
+lazy_static = "1.4.0"
 futures = "0.3.28"
 async-std = "1.12.0"
 
