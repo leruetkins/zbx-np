@@ -632,12 +632,6 @@ fn mqtt_connect() {
 async fn ws() {
     let clients = Arc::new(Mutex::new(Vec::new()));
 
-    // Start listening for http connections
-    // thread::spawn(|| {
-    //     let http_server = OtherHttpServer::http("0.0.0.0:8080").unwrap();
-    //     http_server.handle(http_handler).unwrap();
-    // });
-
     // Start listening for WebSocket connections
     let ws_server = Server::bind("0.0.0.0:2794").unwrap();
 
@@ -806,12 +800,3 @@ fn send_message(message: &str) {
         }
     }
 }
-
-// fn http_handler(_: Request, response: Response<Fresh>) {
-//     let mut response = response.start().unwrap();
-//     // Send a client webpage
-//     response.write_all(HTML.as_bytes()).unwrap();
-//     response.end().unwrap();
-// }
-
-//111
