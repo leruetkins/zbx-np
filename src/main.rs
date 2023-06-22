@@ -52,8 +52,6 @@ const ZABBIX_MAX_LEN: usize = 300;
 const ZABBIX_TIMEOUT: u64 = 1000;
 
 
-//7777
-
 lazy_static! {
     static ref MESSAGES: Mutex<Vec<String>> = Mutex::new(Vec::new());
 }
@@ -687,9 +685,6 @@ fn mqtt_connect() {
 }
 
 
-
-//6666
-
 lazy_static! {
     static ref SENDERS: Arc<Mutex<Vec<Arc<Mutex<Writer<TcpStream>>>>>> = Arc::new(Mutex::new(Vec::new()));
 }
@@ -860,6 +855,5 @@ fn send_message(message: &str) {
 //     response.write_all(HTML.as_bytes()).unwrap();
 //     response.end().unwrap();
 // }
-//5555
 
 //111
