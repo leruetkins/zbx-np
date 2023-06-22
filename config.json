@@ -1,0 +1,17 @@
+{
+  "settings": {
+    "http": {
+      "port": 7000,
+      "login": "admin",
+      "password": "admin"
+    },
+    "mqtt": {
+      "enabled": true,
+      "url": "mqtts://address.s2.eu.hivemq.cloud:8883",
+      "login": "login",
+      "password": "password",
+      "period": 0,
+      "topic": "zabbix/test"
+    }
+  }
+}
