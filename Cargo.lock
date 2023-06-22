@@ -2698,7 +2698,6 @@ dependencies = [
  "chrono",
  "futures 0.3.28",
  "glob",
- "hyper",
  "lazy_static",
  "once_cell",
  "paho-mqtt",

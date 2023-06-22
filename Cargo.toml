@@ -20,6 +20,5 @@ futures = "0.3.28"
 async-std = "1.12.0"
 
 websocket = "0.26.5"
-hyper = "^0.10.6"
 lazy_static = "1.4.0"
 

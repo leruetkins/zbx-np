@@ -1,13 +1,30 @@
 <!DOCTYPE html>
 <html>
+
 <head>
     <meta charset="utf-8">
     <title>WebSocket Test</title>
     <style>
+
+        * {
+
+            margin:0;
+            padding:0;
+            box-sizing: border-box;
+        }
         body {
             font-family: Arial, sans-serif;
-            margin: 20px;
+            padding: 20px;
             background-color: #f2f2f2;
+        }
+
+        .container {
+            margin: 0 auto;
+        }
+
+        .input {
+            margin-top: 10px;
+            text-align: left;
         }
 
         h1 {
@@ -19,6 +36,8 @@
             border: 1px solid #ccc;
             padding: 10px;
             margin-bottom: 10px;
+            width: 80%;
+
         }
 
         #message-list {
@@ -38,7 +57,7 @@
             margin-bottom: 10px;
         }
 
-        #send-button {
+        button {
             padding: 5px 10px;
             font-size: 16px;
             background-color: #4caf50;
@@ -47,17 +66,51 @@
             cursor: pointer;
         }
 
-        #send-button:hover {
+        button:hover {
             background-color: #45a049;
+        }
+
+       
+
+        @media only screen and (max-width: 480px) {
+            body {
+                margin: 10px;
+                max-width: 80%;
+            }
+
+            #message-input {
+                width: 100%;
+                margin-bottom: 5px;
+            }
+        }
+
+        @media only screen and (max-width: 800px) {
+            body {
+                margin: 10px;
+                max-width: 80%;
+            }
+
+            #message-input {
+                width: 100%;
+                margin-bottom: 5px;
+            }
         }
     </style>
 </head>
+
 <body>
-    <h1>WebSocket Test</h1>
-    <input type="text" id="message-input" placeholder="Type a message...">
-    <button id="send-button">Send</button>
-    <div id="message-container">
-        <ul id="message-list"></ul>
+    <div class="container">
+        <div class="header">
+            <h1>WebSocket Test</h1>
+        </div>
+        <div class="input">
+            <input type="text" id="message-input" placeholder="Type a message...">
+            <button id="send-button">Send</button>
+            <button id="last-button">Last</button>
+        </div>
+        <div class="messages" id="message-container">
+            <ul id="message-list"></ul>
+        </div>
     </div>
 
     <script>
@@ -68,24 +121,24 @@
         function connectWebSocket() {
             socket = new WebSocket("ws://" + ipAddress + ":2794", "rust-websocket");
 
-            socket.onopen = function() {
+            socket.onopen = function () {
                 console.log("WebSocket connection established.");
             };
 
-            socket.onmessage = function(event) {
-    var message = event.data;
-    var content = message;
+            socket.onmessage = function (event) {
+                var message = event.data;
+                var content = message;
 
-    if (content.trim() === '') {
-        messageList.insertAdjacentHTML('afterbegin', '<br>');
-    } else {
-        var li = document.createElement("li");
-        li.innerHTML = content;
-        messageList.insertBefore(li, messageList.firstChild);
-    }
-};
+                if (content.trim() === '') {
+                    messageList.insertAdjacentHTML('afterbegin', '<br>');
+                } else {
+                    var li = document.createElement("li");
+                    li.innerHTML = content;
+                    messageList.insertBefore(li, messageList.firstChild);
+                }
+            };
 
-            socket.onclose = function() {
+            socket.onclose = function () {
                 console.log("WebSocket connection closed. Reconnecting...");
                 setTimeout(connectWebSocket, 2000);
             };
@@ -97,8 +150,14 @@
             input.value = "";
         }
 
+        function sendLsat() {
+            socket.send("last");
+        }
+
         document.getElementById("send-button").addEventListener("click", send);
-        document.getElementById("message-input").addEventListener("keyup", function(event) {
+        document.getElementById("last-button").addEventListener("click", sendLsat);
+
+        document.getElementById("message-input").addEventListener("keyup", function (event) {
             if (event.key === "Enter") {
                 send();
             }
@@ -107,4 +166,5 @@
         connectWebSocket();
     </script>
 </body>
+
 </html>
