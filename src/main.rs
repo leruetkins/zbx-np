@@ -18,10 +18,10 @@ use std::process;
 use std::time::Instant;
 use std::{env, time::Duration};
 
-use hyper::net::Fresh;
-use hyper::server::request::Request;
-use hyper::server::response::Response;
-use hyper::Server as OtherHttpServer;
+// use hyper::net::Fresh;
+// use hyper::server::request::Request;
+// use hyper::server::response::Response;
+// use hyper::Server as OtherHttpServer;
 use std::sync::{Arc, Mutex};
 use std::thread;
 use websocket::sync::Server;
@@ -57,6 +57,8 @@ const ZABBIX_TIMEOUT: u64 = 1000;
 lazy_static! {
     static ref MESSAGES: Mutex<Vec<String>> = Mutex::new(Vec::new());
 }
+
+static mut GLOBAL_MESSAGES: Vec<String> = Vec::new();
 
 fn add_message(message: String) {
     let mut messages = MESSAGES.lock().unwrap();
@@ -212,12 +214,24 @@ async fn favicon() -> Result<HttpResponse, Error> {
 async fn index() -> HttpResponse {
     let html = format!(
         r#"<html>
+        <body>
         <h1>Welcome to zbx-np {}</h1>
+        <ul>
+        <li> <a href="/console">Console</a>
+        </ul>
+        </body>
         </html>"#,
         APP_VERSION
     );
 
     HttpResponse::Ok().content_type("text/html").body(html)
+}
+
+#[get("/console")]
+async fn console() -> HttpResponse {
+    HttpResponse::Ok()
+        .content_type("text/html")
+        .body(HTML)
 }
 
 async fn validator(
@@ -290,6 +304,7 @@ async fn main() -> std::io::Result<()> {
         App::new()
             .wrap(auth)
             .service(index)
+            .service(console)
             .service(favicon)
             .service(zabbix_handler)
             .service(zabbix_post_handler)
@@ -302,13 +317,14 @@ async fn main() -> std::io::Result<()> {
 fn print_time_date() -> String {
     let current_datetime = Local::now();
     let formatted_datetime = current_datetime.format("[%H:%M:%S %d-%m-%Y]").to_string();
-    println!("\n{}", formatted_datetime);
+    // println!("\n{}", formatted_datetime);
     formatted_datetime
 }
 
 #[get("/zabbix")]
 async fn zabbix_handler(req: HttpRequest, query: web::Query<UrlQuery>) -> HttpResponse {
-    print_time_date();
+    let message = print_time_date();
+    println!("\n{}",message);
     if let Some(remote_addr) = req.peer_addr() {
         if let Some(ip_address) = remote_addr.ip().to_string().split(':').next() {
             println!("Received data from HTPP via GET: {}", ip_address);
@@ -361,8 +377,8 @@ async fn zabbix_handler(req: HttpRequest, query: web::Query<UrlQuery>) -> HttpRe
 
 #[post("/zabbix")]
 async fn zabbix_post_handler(req: HttpRequest, body: web::Json<Data>) -> HttpResponse {
-    print_time_date();
     let message = print_time_date();
+    println!("\n{}",message);
     add_message(message.to_string());
     if let Some(remote_addr) = req.peer_addr() {
         if let Some(ip_address) = remote_addr.ip().to_string().split(':').next() {
@@ -483,6 +499,9 @@ fn send_to_zabbix(response_json: &str) -> Result<String, std::io::Error> {
     let message=show_result.clone();
             add_message(message.to_string());
             let mut messages = get_messages();
+            unsafe {
+                GLOBAL_MESSAGES = messages.clone(); // Store messages in the global variable
+            }
             send_message("");
     for message in &*messages {
         // println!("{}", message);
@@ -577,8 +596,8 @@ fn mqtt_connect() {
                     let now = Instant::now();
                     if (now - zabbix_last_msg) > Duration::from_millis((period).try_into().unwrap())
                     {
-                        print_time_date();
                         let message = print_time_date();
+                        println!("\n{}",message);
                                 add_message(message.to_string());
 
                         let data: Result<Data, _> = serde_json::from_str(&payload_str);
@@ -679,10 +698,10 @@ async fn ws() {
     let clients = Arc::new(Mutex::new(Vec::new()));
 
     // Start listening for http connections
-    thread::spawn(|| {
-        let http_server = OtherHttpServer::http("0.0.0.0:8080").unwrap();
-        http_server.handle(http_handler).unwrap();
-    });
+    // thread::spawn(|| {
+    //     let http_server = OtherHttpServer::http("0.0.0.0:8080").unwrap();
+    //     http_server.handle(http_handler).unwrap();
+    // });
 
     // Start listening for WebSocket connections
     let ws_server = Server::bind("0.0.0.0:2794").unwrap();
@@ -790,6 +809,18 @@ async fn ws() {
                             eprintln!("Error sending pong message to client {}: {:?}", ip, err);
                         }
                     }
+                    OwnedMessage::Text(ref text) if text == "last" => {
+                        println!("Received 'last' message from client: {}", text);
+                        unsafe {
+                            // Access the global_messages variable
+                            send_message("");
+                            for message in &GLOBAL_MESSAGES {
+                                send_message(message);
+                            }
+                        }
+                        
+                        
+                    }
                     _ => {
                         // Send the message to all clients
                         let senders = SENDERS.lock().unwrap();
@@ -823,10 +854,10 @@ fn send_message(message: &str) {
     }
 }
 
-fn http_handler(_: Request, response: Response<Fresh>) {
-    let mut response = response.start().unwrap();
-    // Send a client webpage
-    response.write_all(HTML.as_bytes()).unwrap();
-    response.end().unwrap();
-}
+// fn http_handler(_: Request, response: Response<Fresh>) {
+//     let mut response = response.start().unwrap();
+//     // Send a client webpage
+//     response.write_all(HTML.as_bytes()).unwrap();
+//     response.end().unwrap();
+// }
 //5555
