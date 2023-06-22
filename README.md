@@ -27,10 +27,10 @@ Before use, create a host with an zabbix trapper item:
 https://www.zabbix.com/documentation/6.0/en/manual/config/items/itemtypes/trapper
 
 # Use GET request: 
-http://localhost:8000/zabbix?data={"item":[{"key":"voltage","value":54.4},{"key":"potenciometr","value":4459},{"key":"button","value":4459}],"item_host_name":"esp8266-ar","zabbix_server":"192.168.243.229:10051"}
+http://localhost:7000/zabbix?data={"item":[{"key":"voltage","value":54.4},{"key":"potenciometr","value":4459},{"key":"button","value":4459}],"item_host_name":"esp8266-ar","zabbix_server":"192.168.243.229:10051"}
 
 # Use POST request: 
-http://localhost:8000/zabbix 
+http://localhost:7000/zabbix 
 
 With Body:
 
@@ -38,7 +38,7 @@ With Body:
 
 # Websocket client
 
-Open http://localhost:8000/console to get websocket client to see new messages online.
+Open http://localhost:7000/console to get websocket client to see new messages online.
 
 # Settings
 All settings are stored in config.json, edit it for yours gole:
