@@ -17,25 +17,21 @@ use std::net::{ SocketAddr, TcpStream };
 use std::process;
 use std::time::Instant;
 use std::{ env, time::Duration };
-
-// use hyper::net::Fresh;
-// use hyper::server::request::Request;
-// use hyper::server::response::Response;
-// use hyper::Server as OtherHttpServer;
 use std::sync::{ Arc, Mutex };
 use std::thread;
 use websocket::sync::Server;
 use websocket::{ Message, OwnedMessage };
-
 use lazy_static::lazy_static;
-
 use websocket::sender::Writer;
-
 use std::sync::{ MutexGuard };
 
-const HTML: &'static str = include_str!("websockets.html");
 
+static mut GLOBAL_MESSAGES: Vec<String> = Vec::new();
+const HTML: &'static str = include_str!("websockets.html");
 const QOS: &[i32] = &[1, 1];
+
+const ZABBIX_MAX_LEN: usize = 300;
+const ZABBIX_TIMEOUT: u64 = 1000;
 
 const APP_VERSION: &str = env!("CARGO_PKG_VERSION");
 static CONFIG_JSON: Lazy<serde_json::Value> = Lazy::new(|| {
@@ -49,14 +45,9 @@ lazy_static! {
     );
 }
 
-const ZABBIX_MAX_LEN: usize = 300;
-const ZABBIX_TIMEOUT: u64 = 1000;
-
 lazy_static! {
     static ref MESSAGES: Mutex<Vec<String>> = Mutex::new(Vec::new());
 }
-
-static mut GLOBAL_MESSAGES: Vec<String> = Vec::new();
 
 fn add_message(message: String) {
     let mut messages = MESSAGES.lock().unwrap();
