@@ -18,6 +18,27 @@ use std::process;
 use std::time::Instant;
 use std::{env, time::Duration};
 
+// use hyper::net::Fresh;
+// use hyper::server::request::Request;
+// use hyper::server::response::Response;
+// use hyper::Server as OtherHttpServer;
+use std::sync::{Arc, Mutex};
+use std::thread;
+use websocket::sync::Server;
+use websocket::{Message, OwnedMessage};
+
+use lazy_static::lazy_static;
+
+
+
+use websocket::sender::Writer;
+
+use std::sync::{MutexGuard};
+
+
+
+const HTML: &'static str = include_str!("websockets.html");
+
 const QOS: &[i32] = &[1, 1];
 
 const APP_VERSION: &str = env!("CARGO_PKG_VERSION");
@@ -26,8 +47,29 @@ static CONFIG_JSON: Lazy<serde_json::Value> = Lazy::new(|| {
     serde_json::from_str(&config).expect("Invalid JSON format")
 });
 
+
 const ZABBIX_MAX_LEN: usize = 300;
 const ZABBIX_TIMEOUT: u64 = 1000;
+
+
+//7777
+
+lazy_static! {
+    static ref MESSAGES: Mutex<Vec<String>> = Mutex::new(Vec::new());
+}
+
+static mut GLOBAL_MESSAGES: Vec<String> = Vec::new();
+
+fn add_message(message: String) {
+    let mut messages = MESSAGES.lock().unwrap();
+    messages.insert(0, message);
+}
+
+fn get_messages() -> MutexGuard<'static, Vec<String>> {
+    MESSAGES.lock().unwrap()
+}
+
+
 
 #[derive(Deserialize, Serialize)]
 struct Data {
@@ -140,6 +182,16 @@ impl ZabbixSender {
             "Request = {}",
             String::from_utf8_lossy(&self.zabbix_packet[..packet_len])
         );
+        
+        
+
+
+        add_message(String::from_utf8_lossy(&self.zabbix_packet[..packet_len]).to_string());
+
+    
+
+
+
 
         Ok(packet_len)
     }
@@ -162,12 +214,24 @@ async fn favicon() -> Result<HttpResponse, Error> {
 async fn index() -> HttpResponse {
     let html = format!(
         r#"<html>
+        <body>
         <h1>Welcome to zbx-np {}</h1>
+        <ul>
+        <li> <a href="/console">Console</a>
+        </ul>
+        </body>
         </html>"#,
         APP_VERSION
     );
 
     HttpResponse::Ok().content_type("text/html").body(html)
+}
+
+#[get("/console")]
+async fn console() -> HttpResponse {
+    HttpResponse::Ok()
+        .content_type("text/html")
+        .body(HTML)
 }
 
 async fn validator(
@@ -204,21 +268,43 @@ async fn main() -> std::io::Result<()> {
     let mqtt_enable = CONFIG_JSON["settings"]["mqtt"]["enabled"]
         .as_bool()
         .unwrap();
+
+
+    // Try to use async
+    // use async_std::task;
+    // async fn mqtt_connect() {}
+    //
     // if mqtt_enable {
-    //     tokio::spawn(async {
-    //         mqtt_connect().await;
-    //     });
+    //     thread::Builder::new()
+    //         .name("mqtt_thread".into())
+    //         .spawn(move || {
+    //             task::block_on(async {
+    //                 mqtt_connect().await;
+    //             });
+    //         })
+    //         .expect("Failed to spawn mqtt_thread");
     // }
+
+
+
     if mqtt_enable {
-        mqtt_connect().await;
+        thread::spawn(|| {
+            mqtt_connect();
+        });
     }
 
+    thread::spawn(move || {
+        block_on(async {
+            ws().await;
+        });
+    });
     // Start the HTTP server
     HttpServer::new(|| {
         let auth = HttpAuthentication::basic(validator);
         App::new()
             .wrap(auth)
             .service(index)
+            .service(console)
             .service(favicon)
             .service(zabbix_handler)
             .service(zabbix_post_handler)
@@ -228,15 +314,17 @@ async fn main() -> std::io::Result<()> {
     .await
 }
 
-fn print_time_date() {
+fn print_time_date() -> String {
     let current_datetime = Local::now();
-    let formatted_datetime = current_datetime.format("%H:%M:%S %d-%m-%Y");
-    println!("\n[{}]", formatted_datetime);
+    let formatted_datetime = current_datetime.format("[%H:%M:%S %d-%m-%Y]").to_string();
+    // println!("\n{}", formatted_datetime);
+    formatted_datetime
 }
 
 #[get("/zabbix")]
 async fn zabbix_handler(req: HttpRequest, query: web::Query<UrlQuery>) -> HttpResponse {
-    print_time_date();
+    let message = print_time_date();
+    println!("\n{}",message);
     if let Some(remote_addr) = req.peer_addr() {
         if let Some(ip_address) = remote_addr.ip().to_string().split(':').next() {
             println!("Received data from HTPP via GET: {}", ip_address);
@@ -289,10 +377,14 @@ async fn zabbix_handler(req: HttpRequest, query: web::Query<UrlQuery>) -> HttpRe
 
 #[post("/zabbix")]
 async fn zabbix_post_handler(req: HttpRequest, body: web::Json<Data>) -> HttpResponse {
-    print_time_date();
+    let message = print_time_date();
+    println!("\n{}",message);
+    add_message(message.to_string());
     if let Some(remote_addr) = req.peer_addr() {
         if let Some(ip_address) = remote_addr.ip().to_string().split(':').next() {
             println!("Received data from HTPP via POST: {}", ip_address);
+            let message=format!("Received data from HTPP via POST: {}", ip_address);
+            add_message(message.to_string());
         } else {
             println!("Unable to extract the IP address");
         }
@@ -305,6 +397,11 @@ async fn zabbix_post_handler(req: HttpRequest, body: web::Json<Data>) -> HttpRes
         "item": body.item,
     });
     println!("{}", response_json);
+   
+    let message = response_json.clone();
+    add_message(message.to_string());
+
+
 
     let show_result = send_to_zabbix(&response_json.to_string());
     let decoded_show_result = match show_result {
@@ -399,11 +496,23 @@ fn send_to_zabbix(response_json: &str) -> Result<String, std::io::Error> {
 
     // Handle the show_result value as needed
     println!("Result = {}", show_result);
+    let message=show_result.clone();
+            add_message(message.to_string());
+            let mut messages = get_messages();
+            unsafe {
+                GLOBAL_MESSAGES = messages.clone(); // Store messages in the global variable
+            }
+            send_message("");
+    for message in &*messages {
+        // println!("{}", message);
+        send_message(&message);
+    }
+    messages.clear();
 
     Ok(show_result) // Return the show_result value
 }
 
-async fn mqtt_connect() {
+fn mqtt_connect() {
     let period = CONFIG_JSON["settings"]["mqtt"]["period"].as_u64().unwrap() * 1000;
     let period_duration = Duration::from_millis(period);
     let mut zabbix_last_msg = Instant::now() - period_duration - Duration::from_millis(1000);
@@ -487,7 +596,10 @@ async fn mqtt_connect() {
                     let now = Instant::now();
                     if (now - zabbix_last_msg) > Duration::from_millis((period).try_into().unwrap())
                     {
-                        print_time_date();
+                        let message = print_time_date();
+                        println!("\n{}",message);
+                                add_message(message.to_string());
+
                         let data: Result<Data, _> = serde_json::from_str(&payload_str);
                         match data {
                             Ok(ref obj) => {
@@ -501,8 +613,13 @@ async fn mqtt_connect() {
                                         //     topic, string
                                         // );
                                         println!("Received data from MQTT:");
+                                        let message = "Received data from MQTT:";
+                                        add_message(message.to_string());
                                         println!("Topic: {}", msg.topic());
                                         println!("Payload: {}", msg.payload_str());
+                                        let message = msg.payload_str();
+                                        add_message(message.to_string());
+
                                     }
                                     Err(ref e) => {
                                         println!("Failed to convert JSON to string: {}", e);
@@ -569,4 +686,178 @@ async fn mqtt_connect() {
     }
 }
 
-//4444
+
+
+//6666
+
+lazy_static! {
+    static ref SENDERS: Arc<Mutex<Vec<Arc<Mutex<Writer<TcpStream>>>>>> = Arc::new(Mutex::new(Vec::new()));
+}
+
+async fn ws() {
+    let clients = Arc::new(Mutex::new(Vec::new()));
+
+    // Start listening for http connections
+    // thread::spawn(|| {
+    //     let http_server = OtherHttpServer::http("0.0.0.0:8080").unwrap();
+    //     http_server.handle(http_handler).unwrap();
+    // });
+
+    // Start listening for WebSocket connections
+    let ws_server = Server::bind("0.0.0.0:2794").unwrap();
+
+    for connection in ws_server.filter_map(Result::ok) {
+        // Clone the Arc for each connection
+        let clients = Arc::clone(&clients);
+
+        // Spawn a new thread for each connection.
+        thread::spawn(move || {
+            if !connection.protocols().contains(&"rust-websocket".to_string()) {
+                connection.reject().unwrap();
+                return;
+            }
+
+            let mut client = match connection.use_protocol("rust-websocket").accept() {
+                Ok(client) => client,
+                Err(err) => {
+                    eprintln!("Error accepting WebSocket connection: {:?}", err);
+                    return;
+                }
+            };
+
+            let ip = client.peer_addr().unwrap();
+
+            println!("Connection from {}", ip);
+
+            let message = Message::text("Connected to server");
+            if let Err(err) = client.send_message(&message) {
+                eprintln!("Error sending initial message to client {}: {:?}", ip, err);
+                return;
+            }
+
+            let (mut receiver, sender) = client.split().unwrap();
+
+            // Wrap the sender in an Arc<Mutex<Sender>>
+            let client_sender = Arc::new(Mutex::new(sender));
+
+            // Store the client_sender in the global SENDERS variable
+            {
+                let mut senders = SENDERS.lock().unwrap();
+                senders.push(client_sender.clone());
+            }
+
+            // Add the client_sender to the clients vector
+            {
+                let mut clients = clients.lock().unwrap();
+                clients.push(client_sender.clone());
+            }
+
+            for message in receiver.incoming_messages() {
+                let message = match message {
+                    Ok(msg) => msg,
+                    Err(err) => {
+                        eprintln!("Error receiving message from client {}: {}", ip, err);
+                        
+                        // Remove the client_sender from the global SENDERS vector
+                        {
+                            let mut senders = SENDERS.lock().unwrap();
+                            if let Some(position) = senders.iter().position(|sender| Arc::ptr_eq(sender, &client_sender)) {
+                                senders.remove(position);
+                            }
+                        }
+                        
+                        // Remove the client_sender from the clients vector
+                        {
+                            let mut clients = clients.lock().unwrap();
+                            if let Some(position) = clients.iter().position(|client| Arc::ptr_eq(client, &client_sender)) {
+                                clients.remove(position);
+                            }
+                        }
+                        
+                        break;
+                    }
+                };
+
+                match message {
+                    OwnedMessage::Close(_) => {
+                        // Remove the client_sender from the global SENDERS vector
+                        {
+                            let mut senders = SENDERS.lock().unwrap();
+                            if let Some(position) = senders.iter().position(|sender| Arc::ptr_eq(sender, &client_sender)) {
+                                senders.remove(position);
+                            }
+                        }
+                    
+                        // Remove the client_sender from the clients vector
+                        {
+                            let mut clients = clients.lock().unwrap();
+                            if let Some(position) = clients.iter().position(|client| Arc::ptr_eq(client, &client_sender)) {
+                                clients.remove(position);
+                            }
+                        }
+                    
+                        let message = Message::close();
+                        if let Err(err) = client_sender.lock().unwrap().send_message(&message) {
+                            eprintln!("Error sending close message to client {}: {:?}", ip, err);
+                        }
+                        println!("Client {} disconnected", ip);
+                        break;
+                    }
+                    OwnedMessage::Ping(data) => {
+                        let message = Message::pong(data);
+                        if let Err(err) = client_sender.lock().unwrap().send_message(&message) {
+                            eprintln!("Error sending pong message to client {}: {:?}", ip, err);
+                        }
+                    }
+                    OwnedMessage::Text(ref text) if text == "last" => {
+                        println!("Received 'last' message from client: {}", text);
+                        unsafe {
+                            // Access the global_messages variable
+                            send_message("");
+                            for message in &GLOBAL_MESSAGES {
+                                send_message(message);
+                            }
+                        }
+                        
+                        
+                    }
+                    _ => {
+                        // Send the message to all clients
+                        let senders = SENDERS.lock().unwrap();
+                        for sender in &*senders {
+                            if let Err(err) = sender.lock().unwrap().send_message(&message) {
+                                eprintln!("Error sending message to client: {:?}", err);
+                            }
+                        }
+                    }
+                }
+            }
+
+            // Remove the client_sender from the clients vector
+            {
+                let mut clients = clients.lock().unwrap();
+                if let Some(position) = clients.iter().position(|client| Arc::ptr_eq(client, &client_sender)) {
+                    clients.remove(position);
+                }
+            }
+        });
+    }
+}
+
+fn send_message(message: &str) {
+    let senders = SENDERS.lock().unwrap();
+    for sender in &*senders {
+        let message = Message::text(message);
+        if let Err(err) = sender.lock().unwrap().send_message(&message) {
+            eprintln!("Error sending message: {:?}", err);
+        }
+    }
+}
+
+// fn http_handler(_: Request, response: Response<Fresh>) {
+//     let mut response = response.start().unwrap();
+//     // Send a client webpage
+//     response.write_all(HTML.as_bytes()).unwrap();
+//     response.end().unwrap();
+// }
+//5555
