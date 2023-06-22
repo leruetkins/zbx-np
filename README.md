@@ -36,6 +36,10 @@ With Body:
 
 {"item":[{"key":"voltage","value":54.4},{"key":"potenciometr","value":4459},{"key":"button","value":4459}],"item_host_name":"esp8266-ar","zabbix_server":"192.168.243.229:10051"}
 
+# Websocket client
+
+Open http://localhost:8000/console to get websocket client to see new messages online.
+
 # Settings
 All settings are stored in config.json, edit it for yours gole:
 
