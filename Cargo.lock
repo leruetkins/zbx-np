@@ -2702,6 +2702,7 @@ dependencies = [
  "lazy_static",
  "once_cell",
  "paho-mqtt",
+ "rand 0.8.5",
  "serde",
  "serde_json",
  "websocket",

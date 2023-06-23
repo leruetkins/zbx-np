@@ -49,6 +49,10 @@ lazy_static! {
     static ref MESSAGES: Mutex<Vec<String>> = Mutex::new(Vec::new());
 }
 
+lazy_static! {
+    static ref RANDOM_NAME: String = generate_random_name();
+}
+
 fn add_message(message: String) {
     let mut messages = MESSAGES.lock().unwrap();
     messages.insert(0, message);
@@ -205,7 +209,11 @@ async fn index() -> HttpResponse {
 
 #[get("/console")]
 async fn console() -> HttpResponse {
-    HttpResponse::Ok().content_type("text/html").body(HTML)
+    let random_name = &*RANDOM_NAME; // Access the value of the RANDOM_NAME static variable
+    let html_with_name = HTML.replace("{RANDOM_NAME}", random_name);
+    HttpResponse::Ok()
+        .content_type("text/html")
+        .body(html_with_name)
 }
 
 async fn validator(
@@ -642,6 +650,8 @@ fn mqtt_connect() {
 async fn ws() {
     let clients = Arc::new(Mutex::new(Vec::new()));
 
+
+    println!("{}", *RANDOM_NAME);
     // Start listening for WebSocket connections
     let ws_server = Server::bind("0.0.0.0:2794").unwrap();
 
@@ -651,12 +661,12 @@ async fn ws() {
 
         // Spawn a new thread for each connection.
         thread::spawn(move || {
-            if !connection.protocols().contains(&"rust-websocket".to_string()) {
+            if !connection.protocols().contains(&RANDOM_NAME.to_string()) {
                 connection.reject().unwrap();
                 return;
             }
 
-            let mut client = match connection.use_protocol("rust-websocket").accept() {
+            let mut client = match connection.use_protocol(&*RANDOM_NAME).accept() {
                 Ok(client) => client,
                 Err(err) => {
                     eprintln!("Error accepting WebSocket connection: {:?}", err);
@@ -799,4 +809,13 @@ async fn ws() {
             }
         });
     }
+}
+
+use rand::Rng;                                                                                                                                                                                    
+fn generate_random_name() -> String {
+    let mut rng = rand::thread_rng();
+    let random_name: String = (0..10)
+        .map(|_| rng.sample(rand::distributions::Alphanumeric) as char)
+        .collect();
+    random_name
 }
