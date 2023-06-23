@@ -24,6 +24,7 @@ use websocket::{ Message, OwnedMessage };
 use lazy_static::lazy_static;
 use websocket::sender::Writer;
 use std::sync::{ MutexGuard };
+use rand::Rng;
 
 
 static mut GLOBAL_MESSAGES: Vec<String> = Vec::new();
@@ -811,7 +812,6 @@ async fn ws() {
     }
 }
 
-use rand::Rng;                                                                                                                                                                                    
 fn generate_random_name() -> String {
     let mut rng = rand::thread_rng();
     let random_name: String = (0..10)
