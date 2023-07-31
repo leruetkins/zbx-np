@@ -31,7 +31,7 @@ static mut GLOBAL_MESSAGES: Vec<String> = Vec::new();
 const HTML: &'static str = include_str!("websockets.html");
 const QOS: &[i32] = &[1, 1];
 
-const ZABBIX_MAX_LEN: usize = 300;
+const ZABBIX_MAX_LEN: usize = 400;
 const ZABBIX_TIMEOUT: u64 = 1000;
 
 const APP_VERSION: &str = env!("CARGO_PKG_VERSION");
