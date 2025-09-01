@@ -1,12 +1,16 @@
+mod auth;
+mod api;
+
 use actix_web::error::ErrorUnauthorized;
 use actix_web::HttpRequest;
 use actix_web::{ dev::ServiceRequest, Error };
 use actix_web::{ get, post, web, App, HttpResponse, HttpServer, Result };
 use actix_web_httpauth::{ extractors::basic::BasicAuth, middleware::HttpAuthentication };
+use actix_cors::Cors;
 use chrono::Local;
-use futures::{ executor::block_on, stream::StreamExt };
+use chrono::Utc;
 use once_cell::sync::Lazy;
-use paho_mqtt as mqtt;
+use rumqttc::{AsyncClient, MqttOptions, QoS, Event, Packet, TlsConfiguration, Transport};
 use serde::{ Deserialize, Serialize };
 use serde_json::json;
 use serde_json::Number;
@@ -14,21 +18,24 @@ use serde_json::Value;
 use std::fs;
 use std::io::{ Read, Write };
 use std::net::{ SocketAddr, TcpStream };
-use std::process;
-use std::time::Instant;
-use std::{ env, time::Duration };
+use std::time::{Duration, Instant};
 use std::sync::{ Arc, Mutex };
 use std::thread;
+use tokio::time;
+use tokio::sync::oneshot;
 use websocket::sync::Server;
 use websocket::{ Message, OwnedMessage };
 use lazy_static::lazy_static;
 use websocket::sender::Writer;
 use std::sync::{ MutexGuard };
 
+// Import auth and API modules
+use auth::{ Stats };
+use api::{ AppState };
+
 
 static mut GLOBAL_MESSAGES: Vec<String> = Vec::new();
-const HTML: &'static str = include_str!("websockets.html");
-const QOS: &[i32] = &[1, 1];
+const HTML: &'static str = include_str!("admin.html");
 
 const ZABBIX_MAX_LEN: usize = 300;
 const ZABBIX_TIMEOUT: u64 = 1000;
@@ -49,9 +56,17 @@ lazy_static! {
     static ref MESSAGES: Mutex<Vec<String>> = Mutex::new(Vec::new());
 }
 
+// Global MQTT service handle
+lazy_static! {
+    static ref MQTT_HANDLE: Arc<Mutex<Option<tokio::sync::oneshot::Sender<()>>>> = Arc::new(Mutex::new(None));
+}
+
 fn add_message(message: String) {
     let mut messages = MESSAGES.lock().unwrap();
-    messages.insert(0, message);
+    messages.insert(0, message.clone());
+    // Immediately broadcast the message to all connected WebSocket clients
+    drop(messages); // Release the lock before sending
+    send_message(&message);
 }
 
 fn get_messages() -> MutexGuard<'static, Vec<String>> {
@@ -60,10 +75,91 @@ fn get_messages() -> MutexGuard<'static, Vec<String>> {
 
 fn send_message(message: &str) {
     let senders = SENDERS.lock().unwrap();
+    
+    // Clean and limit message length for WebSocket safety
+    let clean_message = message.chars()
+        .filter(|c| c.is_ascii_graphic() || c.is_ascii_whitespace())
+        .take(500) // Limit to 500 characters
+        .collect::<String>();
+    
+    if clean_message.trim().is_empty() {
+        return; // Don't send empty messages
+    }
+    
     for sender in &*senders {
-        let message = Message::text(message);
+        let message = Message::text(&clean_message);
         if let Err(err) = sender.lock().unwrap().send_message(&message) {
             eprintln!("Error sending message: {:?}", err);
+        }
+    }
+}
+
+// Send structured WebSocket message for different types of updates
+fn send_websocket_message(msg_type: &str, data: serde_json::Value) {
+    let message = json!({
+        "type": msg_type,
+        "data": data,
+        "timestamp": chrono::Utc::now().to_rfc3339()
+    });
+    
+    if let Ok(message_str) = serde_json::to_string(&message) {
+        send_message(&message_str);
+    }
+}
+
+// Broadcast MQTT status change via WebSocket
+fn broadcast_mqtt_status(enabled: bool, status: &str, url: &str, topic: &str) {
+    let status_data = json!({
+        "enabled": enabled,
+        "status": status,
+        "url": url,
+        "topic": topic
+    });
+    
+    send_websocket_message("mqtt_status", status_data);
+}
+
+// Send current MQTT status to a specific WebSocket client
+fn send_current_mqtt_status_to_client(client_sender: &Arc<Mutex<Writer<TcpStream>>>) {
+    // Read current config to get MQTT settings
+    if let Ok(config_content) = std::fs::read_to_string("config.json") {
+        if let Ok(config) = serde_json::from_str::<serde_json::Value>(&config_content) {
+            let enabled = config["settings"]["mqtt"]["enabled"].as_bool().unwrap_or(false);
+            let url = config["settings"]["mqtt"]["url"].as_str().unwrap_or("");
+            let topic = config["settings"]["mqtt"]["topic"].as_str().unwrap_or("");
+            
+            let has_handle = {
+                let handle = MQTT_HANDLE.lock().unwrap();
+                handle.is_some()
+            };
+            
+            let status = if enabled {
+                if has_handle {
+                    "running"
+                } else {
+                    "starting"
+                }
+            } else {
+                "disabled"
+            };
+            
+            let status_message = json!({
+                "type": "mqtt_status",
+                "data": {
+                    "enabled": enabled,
+                    "status": status,
+                    "url": url,
+                    "topic": topic
+                },
+                "timestamp": chrono::Utc::now().to_rfc3339()
+            });
+            
+            if let Ok(message_str) = serde_json::to_string(&status_message) {
+                let message = Message::text(message_str);
+                if let Err(err) = client_sender.lock().unwrap().send_message(&message) {
+                    eprintln!("Error sending MQTT status to new client: {:?}", err);
+                }
+            }
         }
     }
 }
@@ -164,8 +260,12 @@ impl ZabbixSender {
         let json_bytes = json.as_bytes();
         self.zabbix_packet[13..13 + json_len].copy_from_slice(json_bytes);
         let packet_len = 13 + json_len;
-        println!("Request = {}", String::from_utf8_lossy(&self.zabbix_packet[..packet_len]));
-        add_message(String::from_utf8_lossy(&self.zabbix_packet[..packet_len]).to_string());
+        // Don't print raw binary packet to console as it contains control characters
+        // that can break WebSocket connections
+        let request_message = format!("Request JSON: {}", json);
+        println!("{}", request_message);
+        add_message(request_message);
+        add_message(format!("Zabbix: Sending {} data items to server", self.zabbix_item_list.len()));
         Ok(packet_len)
     }
 }
@@ -231,45 +331,94 @@ async fn main() -> std::io::Result<()> {
     println!("zbx-np {}. ©All rights in reserve.", APP_VERSION);
 
     let port = CONFIG_JSON["settings"]["http"]["port"].as_u64().unwrap_or(7000);
-    // Start the config job in a new thread
+    
+    // Initialize stats
+    let stats = Arc::new(Mutex::new(Stats::default()));
+    
+    // Create app state
+    let app_state = AppState {
+        stats,
+    };
+
     let mqtt_enable = CONFIG_JSON["settings"]["mqtt"]["enabled"].as_bool().unwrap();
 
-    // Try to use async
-    // use async_std::task;
-    // async fn mqtt_connect() {}
-    //
-    // if mqtt_enable {
-    //     thread::Builder::new()
-    //         .name("mqtt_thread".into())
-    //         .spawn(move || {
-    //             task::block_on(async {
-    //                 mqtt_connect().await;
-    //             });
-    //         })
-    //         .expect("Failed to spawn mqtt_thread");
-    // }
-
+    // Start MQTT client in background if enabled
     if mqtt_enable {
-        thread::spawn(|| {
-            mqtt_connect();
+        let stats_clone = app_state.stats.clone();
+        let (shutdown_tx, shutdown_rx) = tokio::sync::oneshot::channel();
+        
+        // Store the shutdown handle
+        {
+            let mut handle = MQTT_HANDLE.lock().unwrap();
+            *handle = Some(shutdown_tx);
+        }
+        
+        tokio::spawn(async move {
+            if let Err(e) = mqtt_connect(stats_clone, shutdown_rx).await {
+                eprintln!("MQTT connection error: {}", e);
+            }
         });
+    } else {
+        // Broadcast disabled status if MQTT is not enabled
+        let mqtt_url = CONFIG_JSON["settings"]["mqtt"]["url"].as_str().unwrap_or("");
+        let mqtt_topic = CONFIG_JSON["settings"]["mqtt"]["topic"].as_str().unwrap_or("");
+        broadcast_mqtt_status(false, "disabled", mqtt_url, mqtt_topic);
     }
 
+    // Start WebSocket server in background
     thread::spawn(move || {
-        block_on(async {
-            ws().await;
-        });
+        if let Err(e) = ws() {
+            eprintln!("WebSocket server error: {:?}", e);
+        }
     });
+    
     // Start the HTTP server
-    HttpServer::new(|| {
+    HttpServer::new(move || {
         let auth = HttpAuthentication::basic(validator);
+        
+        let cors = Cors::default()
+            .allow_any_origin()
+            .allow_any_method()
+            .allow_any_header();
+        
         App::new()
-            .wrap(auth)
+            .app_data(web::Data::new(app_state.clone()))
+            .wrap(cors)
+            // Public endpoints
             .service(index)
             .service(console)
             .service(favicon)
-            .service(zabbix_handler)
-            .service(zabbix_post_handler)
+            // Authentication endpoints (no auth required for login)
+            .route("/api/auth/login", web::post().to(api::login))
+            .route("/api/auth/logout", web::post().to(api::logout))
+            // Configuration API endpoints (simplified - no auth for demo)
+            .route("/api/config", web::get().to(api::get_config))
+            .route("/api/config", web::put().to(api::update_config))
+            .route("/api/config/test", web::post().to(api::test_config))
+            // Statistics API endpoints
+            .route("/api/stats", web::get().to(api::get_stats))
+            .route("/api/stats/history", web::get().to(api::get_stats_history))
+            .route("/api/stats/realtime", web::get().to(api::get_realtime_stats))
+            // MQTT status endpoint
+            .route("/api/mqtt/status", web::get().to(api::get_mqtt_status))
+            // User management API endpoints (simplified)
+            .route("/api/users", web::get().to(api::get_users))
+            .route("/api/users", web::post().to(api::create_user))
+            .route("/api/users/{id}", web::delete().to(api::delete_user))
+            // Token management API endpoints (simplified)
+            .route("/api/tokens", web::get().to(api::get_tokens))
+            .route("/api/tokens", web::post().to(api::create_token))
+            .route("/api/tokens/{id}", web::delete().to(api::delete_token))
+            // Management endpoints
+            .route("/api/restart", web::post().to(api::restart_service))
+            .route("/api/logs", web::get().to(api::get_logs))
+            // Data ingestion endpoints (with Basic Auth for backward compatibility)
+            .service(
+                web::scope("")
+                    .wrap(auth)
+                    .service(zabbix_handler)
+                    .service(zabbix_post_handler)
+            )
     })
         .bind(format!("0.0.0.0:{}", port))?
         .run().await
@@ -286,15 +435,20 @@ fn print_time_date() -> String {
 async fn zabbix_handler(req: HttpRequest, query: web::Query<UrlQuery>) -> HttpResponse {
     let message = print_time_date();
     println!("\n{}", message);
+    add_message(message.to_string());
+    
     if let Some(remote_addr) = req.peer_addr() {
         if let Some(ip_address) = remote_addr.ip().to_string().split(':').next() {
             println!("Received data from HTPP via GET: {}", ip_address);
+            let message = format!("Received data from HTPP via GET: {}", ip_address);
+            add_message(message.to_string());
         } else {
             println!("Unable to extract the IP address");
         }
     } else {
         println!("Unable to retrieve the remote IP address");
     }
+    
     let data: Data = serde_json
         ::from_str(&query.data)
         .unwrap_or_else(|_| panic!("Failed to parse data"));
@@ -306,12 +460,18 @@ async fn zabbix_handler(req: HttpRequest, query: web::Query<UrlQuery>) -> HttpRe
         "item": data.item,
     });
     println!("{}", response_json);
+    
+    let message = response_json.clone();
+    add_message(message.to_string());
 
     let show_result = send_to_zabbix(&response_json.to_string());
     let decoded_show_result = match show_result {
         Ok(show_result) => decode_unicode_escape_sequences(&show_result),
         Err(err) => {
-            eprintln!("Error sending data to Zabbix server: {}", err);
+            let error_message = format!("Error sending data to Zabbix server: {}", err);
+            eprintln!("{}", error_message);
+            add_message(error_message.clone());
+            send_message(&error_message);
             // Create an error response JSON
             let error_response =
                 json!({
@@ -368,7 +528,10 @@ async fn zabbix_post_handler(req: HttpRequest, body: web::Json<Data>) -> HttpRes
     let decoded_show_result = match show_result {
         Ok(show_result) => decode_unicode_escape_sequences(&show_result),
         Err(err) => {
-            eprintln!("Error sending data to Zabbix server: {}", err);
+            let error_message = format!("Error sending data to Zabbix server: {}", err);
+            eprintln!("{}", error_message);
+            add_message(error_message.clone());
+            send_message(&error_message);
             // Create an error response JSON
             let error_response =
                 json!({
@@ -452,194 +615,243 @@ fn send_to_zabbix(response_json: &str) -> Result<String, std::io::Error> {
     let show_result = zabbix_sender.send()?; // Propagate the error from zabbix_sender.send()
     // Handle the show_result value as needed
     println!("Result = {}", show_result);
-    let message = show_result.clone();
-    add_message(message.to_string());
-    let mut messages = get_messages();
-    unsafe {
-        GLOBAL_MESSAGES = messages.clone(); // Store messages in the global variable
-    }
-    send_message("");
-    for message in &*messages {
-        // println!("{}", message);
-        send_message(&message);
-    }
-    messages.clear();
+    add_message(format!("Zabbix Result: {}", show_result));
 
     Ok(show_result) // Return the show_result value
 }
 
-fn mqtt_connect() {
-    let period = CONFIG_JSON["settings"]["mqtt"]["period"].as_u64().unwrap() * 1000;
+async fn mqtt_connect(stats: Arc<Mutex<Stats>>, mut shutdown_rx: tokio::sync::oneshot::Receiver<()>) -> Result<(), Box<dyn std::error::Error>> {
+    // Read config from file to get latest settings
+    let config_content = std::fs::read_to_string("config.json")?;
+    let config: serde_json::Value = serde_json::from_str(&config_content)?;
+    
+    let period = config["settings"]["mqtt"]["period"].as_u64().unwrap_or(10) * 1000;
     let period_duration = Duration::from_millis(period);
     let mut zabbix_last_msg = Instant::now() - period_duration - Duration::from_millis(1000);
 
-    let host = CONFIG_JSON["settings"]["mqtt"]["url"].as_str().unwrap().to_string();
-    println!("Connecting to host: '{}'", host);
+    let host = config["settings"]["mqtt"]["url"].as_str().unwrap().to_string();
+    let zabbix_topic = config["settings"]["mqtt"]["topic"].as_str().unwrap();
+    
+    println!("Connecting to MQTT broker: '{}'", host);
+    add_message(format!("MQTT: Connecting to {}", host));
+    
+    // Broadcast connecting status
+    broadcast_mqtt_status(true, "connecting", &host, zabbix_topic);
 
-    let zabbix_topic = CONFIG_JSON["settings"]["mqtt"]["topic"].as_str().unwrap();
-    let config_id = CONFIG_JSON["settings"]["mqtt"]["id"].as_str().unwrap();
-    let name_id = format!("zbx-np-{}", config_id);
-    println!("Client ID: {}", name_id);
-    // Create the client. Use an ID for a persistent session.
-    // A real system should try harder to use a unique ID.
-    let create_opts = mqtt::CreateOptionsBuilder
-        ::new()
-        .server_uri(host)
-        .client_id(name_id)
-        .finalize();
+    let config_id = config["settings"]["mqtt"]["id"].as_str().unwrap();
+    let client_id = format!("zbx-np-{}", config_id);
+    println!("MQTT Client ID: {}", client_id);
 
-    // Create the client connection
-    let mut cli = mqtt::AsyncClient::new(create_opts).unwrap_or_else(|e| {
-        println!("Error creating the client: {:?}", e);
-        process::exit(1);
-    });
-    if
-        let Err(err) = block_on(async {
-            // Get message stream before connecting.
-            let mut strm = cli.get_stream(25);
+    // Parse MQTT broker URL
+    let url = url::Url::parse(&host)?;
+    let mqtt_host = url.host_str().unwrap_or("localhost");
+    let mqtt_port = url.port().unwrap_or(if url.scheme() == "mqtts" { 8883 } else { 1883 });
 
-            let ssl_opts = mqtt::SslOptionsBuilder::new().enable_server_cert_auth(false).finalize();
+    // Create MQTT options
+    let mut mqttoptions = MqttOptions::new(client_id, mqtt_host, mqtt_port);
+    
+    // Set credentials if provided
+    let login = config["settings"]["mqtt"]["login"].as_str().unwrap_or("");
+    let password = config["settings"]["mqtt"]["password"].as_str().unwrap_or("");
+    
+    if !login.is_empty() {
+        mqttoptions.set_credentials(login, password);
+    }
 
-            let login = CONFIG_JSON["settings"]["mqtt"]["login"].as_str().unwrap().to_string();
+    // Configure connection settings (enhanced from working example)
+    mqttoptions.set_keep_alive(Duration::from_secs(30));
+    mqttoptions.set_clean_session(false);
+    mqttoptions.set_max_packet_size(128 * 1024, 128 * 1024);
 
-            let password = CONFIG_JSON["settings"]["mqtt"]["password"]
-                .as_str()
-                .unwrap()
-                .to_string();
+    // Enable TLS if using mqtts with proper CA certificate validation
+    // Using TlsConfiguration::default() for automatic system CA certificate validation
+    if url.scheme() == "mqtts" {
+        println!("Enabling TLS for MQTT connection with automatic CA validation");
+        add_message("MQTT: Enabling TLS encryption with system CA certificates".to_string());
+        mqttoptions.set_transport(Transport::Tls(TlsConfiguration::default()));
+        println!("TLS configuration applied successfully for secure MQTT connection");
+    }
 
-            let conn_opts = mqtt::ConnectOptionsBuilder
-                ::new()
-                .ssl_options(ssl_opts)
-                .user_name(login)
-                .password(password)
-                .keep_alive_interval(Duration::from_secs(20))
-                .clean_session(false)
-                // .will_message(lwt)
-                .finalize();
+    // Create MQTT client with enhanced configuration
+    let (client, mut eventloop) = AsyncClient::new(mqttoptions, 10);
 
-            // Make the connection to the broker
-            println!("Connecting to the MQTT server...");
-            cli.connect(conn_opts).await?;
-            // cli.connect_with_callbacks(conn_opts, on_connect_success, on_connect_failure).await?;
-            cli.set_connected_callback(|_cli: &mqtt::AsyncClient| {
-                println!("Connected.");
-            });
+    // Subscribe to topic with enhanced logging
+    println!("Subscribing to MQTT topic: {} with QoS AtLeastOnce", zabbix_topic);
+    match client.subscribe(zabbix_topic, QoS::AtLeastOnce).await {
+        Ok(_) => {
+            println!("Successfully subscribed to MQTT topic: {}", zabbix_topic);
+            add_message(format!("MQTT: Subscribed to topic {}", zabbix_topic));
+            // Broadcast running status
+            broadcast_mqtt_status(true, "running", &host, zabbix_topic);
+        }
+        Err(e) => {
+            eprintln!("Failed to subscribe to MQTT topic {}: {}", zabbix_topic, e);
+            add_message(format!("MQTT Error: Failed to subscribe - {}", e));
+            // Broadcast error status
+            broadcast_mqtt_status(true, "error", &host, zabbix_topic);
+            return Err(Box::new(e));
+        }
+    }
 
-            println!("Subscribing to topics: {}", zabbix_topic);
-            cli.subscribe(zabbix_topic, QOS[0]).await?;
+    println!("MQTT client connected successfully, waiting for messages...");
+    add_message("MQTT: Client connected and ready".to_string());
+    
+    let mut reconnect_attempts = 0;
+    const MAX_RECONNECT_ATTEMPTS: u32 = 5;
 
-            // Just loop on incoming messages.
-            println!("Waiting for messages...");
-
-            // Note that we're not providing a way to cleanly shut down and
-            // disconnect. Therefore, when you kill this app (with a ^C or
-            // whatever) the server will get an unexpected drop and then
-            // should emit the LWT message.
-
-            while let Some(msg_opt) = strm.next().await {
-                if let Some(msg) = msg_opt {
-                    // println!("Topic: {}", msg.topic());
-                    // println!("Payload: {}", msg.payload_str());
-                    let topic = msg.topic();
-                    let payload_str = msg.payload_str();
-                    if topic == zabbix_topic {
-                        let now = Instant::now();
-                        if
-                            now - zabbix_last_msg >
-                            Duration::from_millis(period.try_into().unwrap())
+    // Handle MQTT events with shutdown capability
+    loop {
+        tokio::select! {
+            // Check for shutdown signal
+            _ = &mut shutdown_rx => {
+                println!("MQTT: Received shutdown signal, disconnecting...");
+                add_message("MQTT: Service stopped by configuration change".to_string());
+                // Broadcast stopped status
+                broadcast_mqtt_status(false, "stopped", &host, zabbix_topic);
+                return Ok(());
+            }
+            
+            // Handle MQTT events
+            event = eventloop.poll() => {
+                match event {
+                    Ok(Event::Incoming(Packet::Publish(publish))) => {
+                        reconnect_attempts = 0; // Reset counter on successful message
+                        let topic = &publish.topic;
+                        let payload = String::from_utf8_lossy(&publish.payload);
+                        
+                        if topic == zabbix_topic {
+                            let now = Instant::now();
+                    if now - zabbix_last_msg > period_duration {
+                        let message = print_time_date();
+                        println!("\n{}", message);
+                        add_message(message.to_string());
+                        
+                        println!("Received MQTT message from topic: {}", topic);
+                        println!("Payload: {}", payload);
+                        add_message(format!("MQTT: {}", payload));
+                        
+                        // Update stats
                         {
-                            let message = print_time_date();
-                            println!("\n{}", message);
-                            add_message(message.to_string());
-                            let data: Result<Data, _> = serde_json::from_str(&payload_str);
-                            match data {
-                                Ok(ref obj) => {
-                                    let json_string = serde_json::to_string(&obj);
-                                    match json_string {
-                                        Ok(_) => {
-                                            // Ok(string) => {
-                                            // println!("{}", string);
-                                            // println!(
-                                            //     "Received data from MQTT:\n{} - {}",
-                                            //     topic, string
-                                            // );
-                                            println!("Received data from MQTT:");
-                                            let message = "Received data from MQTT:";
-                                            add_message(message.to_string());
-                                            println!("Topic: {}", msg.topic());
-                                            println!("Payload: {}", msg.payload_str());
-                                            let message = msg.payload_str();
-                                            add_message(message.to_string());
-                                        }
-                                        Err(ref e) => {
-                                            println!("Failed to convert JSON to string: {}", e);
-                                        }
-                                    }
-                                }
-                                Err(ref e) => {
-                                    println!("Failed to parse JSON: {}", e);
-                                }
-                            }
-                            if let Ok(data) = data {
-                                let response_json =
-                                    json!({
-                                "zabbix_server": data.zabbix_server,
-                                "item_host_name": data.item_host_name,
-                                "item": data.item,
-                            });
-                                let show_result = send_to_zabbix(&response_json.to_string());
-                                let decoded_show_result = match &show_result {
-                                    Ok(result) => decode_unicode_escape_sequences(&result),
-                                    Err(err) => {
-                                        // Handle the error here, e.g., log or display an error message
-                                        eprintln!("Error: {:?}", err);
-                                        // Provide a default value or return early, depending on your logic
-                                        // For example, you can return an empty string:
-                                        String::new()
-                                    }
-                                };
-                                let mut response_data =
-                                    json!({
-                                "data": response_json,
-                                "result": decoded_show_result
-                            });
-                                // Convert the "show_result" field to a JSON value
-                                if let Some(show_result_value) = response_data.get_mut("result") {
-                                    if let Some(show_result_str) = show_result_value.as_str() {
-                                        if
-                                            let Ok(show_result_json) =
-                                                serde_json::from_str(show_result_str)
-                                        {
-                                            *show_result_value = Value::Object(show_result_json);
-                                        }
-                                    }
-                                }
-                            } else if let Err(err) = data {
-                                eprintln!("Failed to parse payload as JSON object: {}", err);
-                                // Handle the parsing error
-                            }
-                            zabbix_last_msg = Instant::now();
+                            let mut stats = stats.lock().unwrap();
+                            stats.mqtt_messages += 1;
                         }
-                    }
-                } else {
-                    // A "None" means we were disconnected. Try to reconnect...
-                    println!("Lost connection. Attempting reconnect.");
-                    while let Err(err) = cli.reconnect().await {
-                        println!("Error reconnecting: {}", err);
-                        // For tokio use: tokio::time::delay_for()
-                        async_std::task::sleep(Duration::from_millis(1000)).await;
+
+                        // Try to parse as JSON and send to Zabbix
+                        if payload.trim().is_empty() {
+                            println!("Received empty MQTT payload, skipping");
+                            continue;
+                        }
+                        
+                        match serde_json::from_str::<Data>(&payload) {
+                            Ok(data) => {
+                                // Validate required fields
+                                if data.zabbix_server.is_empty() {
+                                    println!("Invalid MQTT payload: missing zabbix_server");
+                                    add_message("MQTT Error: Missing zabbix_server field".to_string());
+                                    continue;
+                                }
+                                
+                                if data.item_host_name.is_empty() {
+                                    println!("Invalid MQTT payload: missing item_host_name");
+                                    add_message("MQTT Error: Missing item_host_name field".to_string());
+                                    continue;
+                                }
+                                
+                                if data.item.is_empty() {
+                                    println!("Invalid MQTT payload: no items specified");
+                                    add_message("MQTT Error: No items in payload".to_string());
+                                    continue;
+                                }
+                                
+                                let response_json = json!({
+                                    "zabbix_server": data.zabbix_server,
+                                    "item_host_name": data.item_host_name,
+                                    "item": data.item,
+                                });
+                                
+                                match send_to_zabbix(&response_json.to_string()) {
+                                    Ok(result) => {
+                                        let decoded_result = decode_unicode_escape_sequences(&result);
+                                        println!("Zabbix result: {}", decoded_result);
+                                        add_message(format!("Zabbix: {}", decoded_result));
+                                        
+                                        // Update stats
+                                        {
+                                            let mut stats = stats.lock().unwrap();
+                                            stats.zabbix_sends += 1;
+                                            stats.successful_requests += 1;
+                                        }
+                                    }
+                                    Err(e) => {
+                                        eprintln!("Error sending to Zabbix: {}", e);
+                                        add_message(format!("Zabbix Error: {}", e));
+                                        
+                                        // Update stats
+                                        {
+                                            let mut stats = stats.lock().unwrap();
+                                            stats.failed_requests += 1;
+                                        }
+                                    }
+                                }
+                            }
+                            Err(e) => {
+                                println!("Failed to parse MQTT payload as JSON: {}", e);
+                                add_message(format!("Parse Error: {}", e));
+                            }
+                        }
+                        
+                                        zabbix_last_msg = Instant::now();
+                                    }
+                                }
+                            }
+                            Ok(Event::Incoming(Packet::ConnAck(_))) => {
+                                println!("MQTT: Connection acknowledged");
+                                add_message("MQTT: Connection established".to_string());
+                                broadcast_mqtt_status(true, "running", &host, zabbix_topic);
+                                reconnect_attempts = 0;
+                            }
+                            Ok(Event::Incoming(Packet::Disconnect)) => {
+                                println!("MQTT: Received disconnect packet");
+                                add_message("MQTT: Disconnected by broker".to_string());
+                                broadcast_mqtt_status(true, "disconnected", &host, zabbix_topic);
+                            }
+                            Ok(_) => {
+                                // Handle other events (ping, suback, etc.)
+                            }
+                            Err(e) => {
+                                reconnect_attempts += 1;
+                                eprintln!("MQTT connection error (attempt {}): {}", reconnect_attempts, e);
+                                add_message(format!("MQTT Error ({}): {}", reconnect_attempts, e));
+                                broadcast_mqtt_status(true, "reconnecting", &host, zabbix_topic);
+                                
+                                if reconnect_attempts >= MAX_RECONNECT_ATTEMPTS {
+                                    eprintln!("Max reconnection attempts reached. Stopping MQTT client.");
+                                    add_message("MQTT: Max reconnection attempts reached. Client stopped.".to_string());
+                                    broadcast_mqtt_status(true, "error", &host, zabbix_topic);
+                                    return Err(Box::new(e));
+                                }
+                                
+                                // Exponential backoff for reconnection
+                                let delay_seconds = std::cmp::min(5 * 2_u64.pow(reconnect_attempts - 1), 60);
+                                println!("Attempting to reconnect in {} seconds...", delay_seconds);
+                                time::sleep(Duration::from_secs(delay_seconds)).await;
+                                
+                                // Re-subscribe after reconnection
+                                if let Err(e) = client.subscribe(zabbix_topic, QoS::AtLeastOnce).await {
+                                    eprintln!("Failed to re-subscribe: {}", e);
+                                    add_message(format!("MQTT Re-subscribe Error: {}", e));
+                                } else {
+                                    println!("Successfully re-subscribed to topic: {}", zabbix_topic);
+                                    add_message(format!("MQTT: Re-subscribed to {}", zabbix_topic));
+                                }
+                            }
+                        }
                     }
                 }
             }
-            // Explicit return type for the async block
-            Ok::<(), mqtt::Error>(())
-        })
-    {
-        eprintln!("{}", err);
     }
-}
 
-async fn ws() {
+fn ws() -> std::io::Result<()> {
     let clients = Arc::new(Mutex::new(Vec::new()));
 
     // Start listening for WebSocket connections
@@ -689,6 +901,32 @@ async fn ws() {
             {
                 let mut clients = clients.lock().unwrap();
                 clients.push(client_sender.clone());
+            }
+            
+            // Send current MQTT status to the new client
+            send_current_mqtt_status_to_client(&client_sender);
+            
+            // Send recent messages to the new client
+            {
+                let messages = get_messages();
+                println!("Sending {} messages to new WebSocket client", messages.len());
+                for message in messages.iter().take(20) { // Send last 20 messages with newest first
+                    // Filter out binary or problematic messages and ensure UTF-8 compatibility
+                    let clean_message = message.chars()
+                        .filter(|c| c.is_ascii_graphic() || c.is_ascii_whitespace())
+                        .take(200) // Limit message length to prevent WebSocket issues
+                        .collect::<String>();
+                    
+                    if !clean_message.trim().is_empty() {
+                        println!("Sending message: {}", clean_message.chars().take(50).collect::<String>());
+                        let msg = Message::text(clean_message);
+                        if let Err(err) = client_sender.lock().unwrap().send_message(&msg) {
+                            eprintln!("Error sending recent message to client {}: {:?}", ip, err);
+                        }
+                    } else {
+                        println!("Filtered out problematic message: {}", message.chars().take(50).collect::<String>());
+                    }
+                }
             }
 
             for message in receiver.incoming_messages() {
@@ -799,4 +1037,5 @@ async fn ws() {
             }
         });
     }
+    Ok(())
 }
