@@ -41,9 +41,70 @@ const ZABBIX_MAX_LEN: usize = 300;
 const ZABBIX_TIMEOUT: u64 = 1000;
 
 const APP_VERSION: &str = env!("CARGO_PKG_VERSION");
+
+// Function to create default config if it doesn't exist
+fn create_default_config() -> std::io::Result<()> {
+    let default_config = json!({
+        "settings": {
+            "http": {
+                "port": 7000,
+                "login": "admin",
+                "password": "admin"
+            },
+            "mqtt": {
+                "enabled": false,
+                "url": "",
+                "id": "",
+                "login": "",
+                "password": "",
+                "period": 0,
+                "topic": ""
+            }
+        },
+        "users": [
+            {
+                "id": 1,
+                "username": "admin",
+                "password": "admin",
+                "created_at": chrono::Utc::now().to_rfc3339()
+            }
+        ]
+    });
+    
+    let config_content = serde_json::to_string_pretty(&default_config)?;
+    fs::write("config.json", config_content)?;
+    println!("Created default config.json with admin user (username: admin, password: admin)");
+    Ok(())
+}
+
+// Function to load or create config
+fn load_or_create_config() -> serde_json::Value {
+    match fs::read_to_string("config.json") {
+        Ok(config_content) => {
+            match serde_json::from_str(&config_content) {
+                Ok(config) => config,
+                Err(e) => {
+                    eprintln!("Invalid JSON format in config.json: {}", e);
+                    eprintln!("Please fix the JSON syntax or delete the file to create a new default config.");
+                    std::process::exit(1);
+                }
+            }
+        }
+        Err(_) => {
+            println!("Config file not found, creating default config.json...");
+            if let Err(e) = create_default_config() {
+                eprintln!("Failed to create default config: {}", e);
+                std::process::exit(1);
+            }
+            // Load the newly created config
+            let config_content = fs::read_to_string("config.json").expect("Failed to read newly created config");
+            serde_json::from_str(&config_content).expect("Failed to parse newly created config")
+        }
+    }
+}
+
 static CONFIG_JSON: Lazy<serde_json::Value> = Lazy::new(|| {
-    let config = fs::read_to_string("config.json").expect("Unable to read config");
-    serde_json::from_str(&config).expect("Invalid JSON format")
+    load_or_create_config()
 });
 
 lazy_static! {
