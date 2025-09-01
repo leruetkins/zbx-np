@@ -235,40 +235,20 @@ pub async fn restart_service() -> Result<HttpResponse, Error> {
     })))
 }
 
-// Get MQTT status
+// Get MQTT status from global state instead of config file
 pub async fn get_mqtt_status() -> Result<HttpResponse, Error> {
-    match read_config() {
-        Ok(config) => {
-            let enabled = config["settings"]["mqtt"]["enabled"].as_bool().unwrap_or(false);
-            let has_handle = {
-                let handle = crate::MQTT_HANDLE.lock().unwrap();
-                handle.is_some()
-            };
-            
-            let status = if enabled {
-                if has_handle {
-                    "running"
-                } else {
-                    "starting"
-                }
-            } else {
-                "disabled"
-            };
-            
-            Ok(HttpResponse::Ok().json(json!({
-                "enabled": enabled,
-                "status": status,
-                "url": config["settings"]["mqtt"]["url"].as_str().unwrap_or(""),
-                "topic": config["settings"]["mqtt"]["topic"].as_str().unwrap_or("")
-            })))
-        }
-        Err(e) => {
-            Ok(HttpResponse::InternalServerError().json(json!({
-                "error": "Failed to read configuration",
-                "details": e.to_string()
-            })))
-        }
-    }
+    // Get current MQTT state from global state instead of config file
+    let mqtt_state = crate::MQTT_STATE.lock().unwrap().clone();
+    
+    println!("DEBUG: API returning MQTT state: enabled={}, status='{}', url='{}'", 
+             mqtt_state.enabled, mqtt_state.status, mqtt_state.url);
+    
+    Ok(HttpResponse::Ok().json(json!({
+        "enabled": mqtt_state.enabled,
+        "status": mqtt_state.status,
+        "url": mqtt_state.url,
+        "topic": mqtt_state.topic
+    })))
 }
 
 // MQTT Service Management
@@ -305,6 +285,9 @@ async fn restart_mqtt_service(enabled: bool, stats: Arc<Mutex<Stats>>) -> std::r
     
     // Start new MQTT service if enabled
     if enabled {
+        // Broadcast starting status immediately
+        crate::broadcast_mqtt_status(true, "starting", &mqtt_url, &mqtt_topic);
+        
         let (shutdown_tx, shutdown_rx) = oneshot::channel();
         
         // Store the new shutdown handle

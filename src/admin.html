@@ -425,7 +425,7 @@
                                             class="flex-1 px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md bg-white dark:bg-gray-700 text-gray-900 dark:text-white mr-4 mb-4 lg:mb-0 lg:mr-4">
                                         <input v-model="newUser.password" type="password" placeholder="Password" required
                                             class="flex-1 px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md bg-white dark:bg-gray-700 text-gray-900 dark:text-white mr-4 mb-4 lg:mb-0 lg:mr-4">
-                                        <button type="submit" :disabled="isAddingUser" class="px-6 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700 disabled:opacity-50 whitespace-nowrap">
+                                        <button type="button" :disabled="isAddingUser" @click="addUser" class="px-6 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700 disabled:opacity-50 whitespace-nowrap">
                                             {{ isAddingUser ? 'Adding...' : 'Add User' }}
                                         </button>
                                     </form>
@@ -796,14 +796,18 @@
 
                         if (response?.ok) {
                             const result = await response.json();
+                            
                             if (result.success) {
                                 // Add user to local list
                                 this.users.push(result.user);
                                 this.newUser = { username: '', password: '' };
                                 alert('User added successfully!');
+                            } else {
+                                alert('Failed to add user: ' + (result.error || 'Unknown error'));
                             }
                         } else {
                             const error = await response.json();
+                            
                             if (response.status === 409) {
                                 alert('Error: Username already exists!');
                             } else {

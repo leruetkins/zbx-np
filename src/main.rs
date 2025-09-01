@@ -61,6 +61,32 @@ lazy_static! {
     static ref MQTT_HANDLE: Arc<Mutex<Option<tokio::sync::oneshot::Sender<()>>>> = Arc::new(Mutex::new(None));
 }
 
+// Global MQTT state tracking with comprehensive information
+#[derive(Clone, Debug)]
+struct MqttState {
+    enabled: bool,
+    status: String,
+    url: String,
+    topic: String,
+    last_updated: chrono::DateTime<chrono::Utc>,
+}
+
+impl Default for MqttState {
+    fn default() -> Self {
+        Self {
+            enabled: false,
+            status: "unknown".to_string(),
+            url: String::new(),
+            topic: String::new(),
+            last_updated: chrono::Utc::now(),
+        }
+    }
+}
+
+lazy_static! {
+    static ref MQTT_STATE: Arc<Mutex<MqttState>> = Arc::new(Mutex::new(MqttState::default()));
+}
+
 fn add_message(message: String) {
     let mut messages = MESSAGES.lock().unwrap();
     messages.insert(0, message.clone());
@@ -114,6 +140,17 @@ fn send_websocket_message(msg_type: &str, data: serde_json::Value) {
 
 // Broadcast MQTT status change via WebSocket
 fn broadcast_mqtt_status(enabled: bool, status: &str, url: &str, topic: &str) {
+    // Update global state with comprehensive information
+    {
+        let mut mqtt_state = MQTT_STATE.lock().unwrap();
+        mqtt_state.enabled = enabled;
+        mqtt_state.status = status.to_string();
+        mqtt_state.url = url.to_string();
+        mqtt_state.topic = topic.to_string();
+        mqtt_state.last_updated = chrono::Utc::now();
+        println!("DEBUG: Updating MQTT state: enabled={}, status='{}', url='{}'", enabled, status, url);
+    }
+    
     let status_data = json!({
         "enabled": enabled,
         "status": status,
@@ -126,45 +163,26 @@ fn broadcast_mqtt_status(enabled: bool, status: &str, url: &str, topic: &str) {
 
 // Send current MQTT status to a specific WebSocket client
 fn send_current_mqtt_status_to_client(client_sender: &Arc<Mutex<Writer<TcpStream>>>) {
-    // Read current config to get MQTT settings
-    if let Ok(config_content) = std::fs::read_to_string("config.json") {
-        if let Ok(config) = serde_json::from_str::<serde_json::Value>(&config_content) {
-            let enabled = config["settings"]["mqtt"]["enabled"].as_bool().unwrap_or(false);
-            let url = config["settings"]["mqtt"]["url"].as_str().unwrap_or("");
-            let topic = config["settings"]["mqtt"]["topic"].as_str().unwrap_or("");
-            
-            let has_handle = {
-                let handle = MQTT_HANDLE.lock().unwrap();
-                handle.is_some()
-            };
-            
-            let status = if enabled {
-                if has_handle {
-                    "running"
-                } else {
-                    "starting"
-                }
-            } else {
-                "disabled"
-            };
-            
-            let status_message = json!({
-                "type": "mqtt_status",
-                "data": {
-                    "enabled": enabled,
-                    "status": status,
-                    "url": url,
-                    "topic": topic
-                },
-                "timestamp": chrono::Utc::now().to_rfc3339()
-            });
-            
-            if let Ok(message_str) = serde_json::to_string(&status_message) {
-                let message = Message::text(message_str);
-                if let Err(err) = client_sender.lock().unwrap().send_message(&message) {
-                    eprintln!("Error sending MQTT status to new client: {:?}", err);
-                }
-            }
+    let mqtt_state = MQTT_STATE.lock().unwrap().clone();
+    
+    println!("DEBUG: Sending current MQTT state to new client: enabled={}, status='{}', url='{}'", 
+             mqtt_state.enabled, mqtt_state.status, mqtt_state.url);
+    
+    let status_message = json!({
+        "type": "mqtt_status",
+        "data": {
+            "enabled": mqtt_state.enabled,
+            "status": mqtt_state.status,
+            "url": mqtt_state.url,
+            "topic": mqtt_state.topic
+        },
+        "timestamp": chrono::Utc::now().to_rfc3339()
+    });
+    
+    if let Ok(message_str) = serde_json::to_string(&status_message) {
+        let message = Message::text(message_str);
+        if let Err(err) = client_sender.lock().unwrap().send_message(&message) {
+            eprintln!("Error sending MQTT status to new client: {:?}", err);
         }
     }
 }
@@ -337,6 +355,22 @@ async fn main() -> std::io::Result<()> {
 
     let port = CONFIG_JSON["settings"]["http"]["port"].as_u64().unwrap_or(7000);
     
+    // Initialize MQTT state from config immediately
+    let mqtt_enable = CONFIG_JSON["settings"]["mqtt"]["enabled"].as_bool().unwrap();
+    let mqtt_url = CONFIG_JSON["settings"]["mqtt"]["url"].as_str().unwrap_or("");
+    let mqtt_topic = CONFIG_JSON["settings"]["mqtt"]["topic"].as_str().unwrap_or("");
+    
+    // Initialize MQTT state immediately to avoid race conditions
+    {
+        let mut mqtt_state = MQTT_STATE.lock().unwrap();
+        mqtt_state.enabled = mqtt_enable;
+        mqtt_state.url = mqtt_url.to_string();
+        mqtt_state.topic = mqtt_topic.to_string();
+        mqtt_state.status = if mqtt_enable { "starting".to_string() } else { "disabled".to_string() };
+        mqtt_state.last_updated = chrono::Utc::now();
+        println!("DEBUG: Initial MQTT state initialized: enabled={}, status='{}'", mqtt_enable, mqtt_state.status);
+    }
+    
     // Initialize stats
     let stats = Arc::new(Mutex::new(Stats::default()));
     
@@ -344,8 +378,6 @@ async fn main() -> std::io::Result<()> {
     let app_state = AppState {
         stats,
     };
-
-    let mqtt_enable = CONFIG_JSON["settings"]["mqtt"]["enabled"].as_bool().unwrap();
 
     // Start MQTT client in background if enabled
     if mqtt_enable {
@@ -361,14 +393,12 @@ async fn main() -> std::io::Result<()> {
         tokio::spawn(async move {
             if let Err(e) = mqtt_connect(stats_clone, shutdown_rx).await {
                 eprintln!("MQTT connection error: {}", e);
+                // Broadcast error status on complete failure
+                broadcast_mqtt_status(true, "error", mqtt_url, mqtt_topic);
             }
         });
-    } else {
-        // Broadcast disabled status if MQTT is not enabled
-        let mqtt_url = CONFIG_JSON["settings"]["mqtt"]["url"].as_str().unwrap_or("");
-        let mqtt_topic = CONFIG_JSON["settings"]["mqtt"]["topic"].as_str().unwrap_or("");
-        broadcast_mqtt_status(false, "disabled", mqtt_url, mqtt_topic);
     }
+    // Note: No need to broadcast status here since it's already initialized in MQTT_STATE above
 
     // Start WebSocket server in background
     thread::spawn(move || {
@@ -640,7 +670,7 @@ async fn mqtt_connect(stats: Arc<Mutex<Stats>>, mut shutdown_rx: tokio::sync::on
     println!("Connecting to MQTT broker: '{}'", host);
     add_message(format!("MQTT: Connecting to {}", host));
     
-    // Broadcast connecting status
+    // Update status to connecting now that we're actually attempting connection
     broadcast_mqtt_status(true, "connecting", &host, zabbix_topic);
 
     let config_id = config["settings"]["mqtt"]["id"].as_str().unwrap();
@@ -686,8 +716,7 @@ async fn mqtt_connect(stats: Arc<Mutex<Stats>>, mut shutdown_rx: tokio::sync::on
         Ok(_) => {
             println!("Successfully subscribed to MQTT topic: {}", zabbix_topic);
             add_message(format!("MQTT: Subscribed to topic {}", zabbix_topic));
-            // Broadcast running status
-            broadcast_mqtt_status(true, "running", &host, zabbix_topic);
+            // Don't update status here - wait for actual connection acknowledgment
         }
         Err(e) => {
             eprintln!("Failed to subscribe to MQTT topic {}: {}", zabbix_topic, e);
@@ -698,8 +727,8 @@ async fn mqtt_connect(stats: Arc<Mutex<Stats>>, mut shutdown_rx: tokio::sync::on
         }
     }
 
-    println!("MQTT client connected successfully, waiting for messages...");
-    add_message("MQTT: Client connected and ready".to_string());
+    println!("MQTT client subscription completed, waiting for connection...");
+    add_message("MQTT: Waiting for connection acknowledgment".to_string());
     
     let mut reconnect_attempts = 0;
     const MAX_RECONNECT_ATTEMPTS: u32 = 5;
@@ -811,7 +840,7 @@ async fn mqtt_connect(stats: Arc<Mutex<Stats>>, mut shutdown_rx: tokio::sync::on
                             }
                             Ok(Event::Incoming(Packet::ConnAck(_))) => {
                                 println!("MQTT: Connection acknowledged");
-                                add_message("MQTT: Connection established".to_string());
+                                add_message("MQTT: Client connected and ready".to_string());
                                 broadcast_mqtt_status(true, "running", &host, zabbix_topic);
                                 reconnect_attempts = 0;
                             }
@@ -827,7 +856,13 @@ async fn mqtt_connect(stats: Arc<Mutex<Stats>>, mut shutdown_rx: tokio::sync::on
                                 reconnect_attempts += 1;
                                 eprintln!("MQTT connection error (attempt {}): {}", reconnect_attempts, e);
                                 add_message(format!("MQTT Error ({}): {}", reconnect_attempts, e));
-                                broadcast_mqtt_status(true, "reconnecting", &host, zabbix_topic);
+                                
+                                // Always show disconnected on first error, then reconnecting on subsequent errors
+                                if reconnect_attempts == 1 {
+                                    broadcast_mqtt_status(true, "disconnected", &host, zabbix_topic);
+                                } else {
+                                    broadcast_mqtt_status(true, "reconnecting", &host, zabbix_topic);
+                                }
                                 
                                 if reconnect_attempts >= MAX_RECONNECT_ATTEMPTS {
                                     eprintln!("Max reconnection attempts reached. Stopping MQTT client.");
@@ -839,6 +874,12 @@ async fn mqtt_connect(stats: Arc<Mutex<Stats>>, mut shutdown_rx: tokio::sync::on
                                 // Exponential backoff for reconnection
                                 let delay_seconds = std::cmp::min(5 * 2_u64.pow(reconnect_attempts - 1), 60);
                                 println!("Attempting to reconnect in {} seconds...", delay_seconds);
+                                
+                                // Show reconnecting status during delay
+                                if reconnect_attempts > 1 {
+                                    broadcast_mqtt_status(true, "reconnecting", &host, zabbix_topic);
+                                }
+                                
                                 time::sleep(Duration::from_secs(delay_seconds)).await;
                                 
                                 // Re-subscribe after reconnection
@@ -848,6 +889,8 @@ async fn mqtt_connect(stats: Arc<Mutex<Stats>>, mut shutdown_rx: tokio::sync::on
                                 } else {
                                     println!("Successfully re-subscribed to topic: {}", zabbix_topic);
                                     add_message(format!("MQTT: Re-subscribed to {}", zabbix_topic));
+                                    // Set status back to connecting after successful re-subscription
+                                    broadcast_mqtt_status(true, "connecting", &host, zabbix_topic);
                                 }
                             }
                         }
