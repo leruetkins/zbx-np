@@ -1,5 +1,6 @@
 <!DOCTYPE html>
 <html lang="en">
+
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
@@ -8,7 +9,7 @@
     <script src="https://cdn.tailwindcss.com"></script>
     <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0"></script>
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css">
-    
+
     <script>
         tailwind.config = {
             darkMode: 'class',
@@ -28,23 +29,29 @@
     </script>
 
     <style>
-        [v-cloak] { display: none; }
-        
-        .fade-enter-active, .fade-leave-active {
+        [v-cloak] {
+            display: none;
+        }
+
+        .fade-enter-active,
+        .fade-leave-active {
             transition: opacity 0.3s;
         }
-        .fade-enter-from, .fade-leave-to {
+
+        .fade-enter-from,
+        .fade-leave-to {
             opacity: 0;
         }
-        
+
         /* Ensure full height layout without scrolling */
-        html, body {
+        html,
+        body {
             height: 100%;
             overflow: hidden;
             margin: 0;
             padding: 0;
         }
-        
+
         #app {
             height: 100%;
             overflow: hidden;
@@ -62,44 +69,31 @@
                     <h2 class="text-3xl font-bold text-gray-900 dark:text-white">zbx-np</h2>
                     <p class="mt-2 text-sm text-gray-600 dark:text-gray-400">Admin Panel</p>
                 </div>
-                
+
                 <form @submit.prevent="handleLogin" class="mt-8 space-y-6">
                     <div class="space-y-4">
                         <div>
                             <label for="username" class="block text-sm font-medium text-gray-700 dark:text-gray-300">Username</label>
-                            <input
-                                id="username"
-                                v-model="loginForm.username"
-                                type="text"
-                                required
+                            <input id="username" v-model="loginForm.username" type="text" required
                                 class="mt-1 block w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md bg-white dark:bg-gray-700 text-gray-900 dark:text-white"
-                                placeholder="Enter username"
-                            />
+                                placeholder="Enter username" />
                         </div>
-                        
+
                         <div>
                             <label for="password" class="block text-sm font-medium text-gray-700 dark:text-gray-300">Password</label>
-                            <input
-                                id="password"
-                                v-model="loginForm.password"
-                                type="password"
-                                required
+                            <input id="password" v-model="loginForm.password" type="password" required
                                 class="mt-1 block w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md bg-white dark:bg-gray-700 text-gray-900 dark:text-white"
-                                placeholder="Enter password"
-                            />
+                                placeholder="Enter password" />
                         </div>
                     </div>
-                    
+
                     <div v-if="loginError" class="text-red-600 dark:text-red-400 text-sm text-center">
                         {{ loginError }}
                     </div>
-                    
+
                     <div>
-                        <button
-                            type="submit"
-                            :disabled="isLoggingIn"
-                            class="w-full py-2 px-4 border border-transparent text-sm font-medium rounded-md text-white bg-blue-600 hover:bg-blue-700 disabled:opacity-50"
-                        >
+                        <button type="submit" :disabled="isLoggingIn"
+                            class="w-full py-2 px-4 border border-transparent text-sm font-medium rounded-md text-white bg-blue-600 hover:bg-blue-700 disabled:opacity-50">
                             <span v-if="isLoggingIn" class="mr-2">
                                 <i class="fas fa-spinner fa-spin"></i>
                             </span>
@@ -114,21 +108,19 @@
         <div v-else class="h-full flex flex-col overflow-hidden bg-gray-50 dark:bg-gray-900">
             <!-- Top Navigation -->
             <nav class="flex-shrink-0 bg-white dark:bg-gray-800 shadow-sm border-b border-gray-200 dark:border-gray-700 h-16 relative z-30">
-                <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+                <div class="w-full px-4 sm:px-6 lg:px-8">
                     <div class="flex justify-between h-16">
                         <div class="flex items-center">
                             <!-- Mobile menu button -->
-                            <button
-                                @click="sidebarOpen = !sidebarOpen"
-                                class="lg:hidden p-2 rounded-md text-gray-600 dark:text-gray-400 hover:text-gray-900 dark:hover:text-white hover:bg-gray-100 dark:hover:bg-gray-700 focus:outline-none focus:ring-2 focus:ring-inset focus:ring-blue-500 mr-3"
-                            >
+                            <button @click="sidebarOpen = !sidebarOpen"
+                                class="lg:hidden p-2 rounded-md text-gray-600 dark:text-gray-400 hover:text-gray-900 dark:hover:text-white hover:bg-gray-100 dark:hover:bg-gray-700 focus:outline-none focus:ring-2 focus:ring-inset focus:ring-blue-500 mr-3">
                                 <i :class="sidebarOpen ? 'fas fa-times' : 'fas fa-bars'" class="text-lg"></i>
                             </button>
-                            
+
                             <i class="fas fa-server text-2xl text-blue-600 dark:text-blue-400 mr-3"></i>
                             <h1 class="text-xl font-semibold text-gray-900 dark:text-white">zbx-np Admin</h1>
                         </div>
-                        
+
                         <div class="flex items-center space-x-4">
                             <!-- WebSocket Status -->
                             <div class="hidden sm:flex items-center space-x-2">
@@ -137,32 +129,24 @@
                                     {{ wsConnected ? 'Connected' : 'Disconnected' }}
                                 </span>
                             </div>
-                            
+
                             <!-- Dark Mode Toggle -->
-                            <button
-                                @click="toggleDarkMode"
-                                class="p-2 text-gray-600 dark:text-gray-400 hover:text-gray-900 dark:hover:text-white"
-                            >
+                            <button @click="toggleDarkMode" class="p-2 text-gray-600 dark:text-gray-400 hover:text-gray-900 dark:hover:text-white">
                                 <i :class="darkMode ? 'fas fa-sun' : 'fas fa-moon'"></i>
                             </button>
-                            
+
                             <!-- User Menu -->
                             <div class="relative" ref="userMenuContainer">
-                                <button
-                                    @click="toggleUserMenu"
-                                    class="flex items-center space-x-2 text-sm text-gray-700 dark:text-gray-300 hover:text-gray-900 dark:hover:text-white"
-                                >
+                                <button @click="toggleUserMenu" class="flex items-center space-x-2 text-sm text-gray-700 dark:text-gray-300 hover:text-gray-900 dark:hover:text-white">
                                     <i class="fas fa-user-circle text-lg"></i>
-                                    <span class="hidden sm:inline">admin</span>
+                                    <span class="hidden sm:inline">{{ user?.username || 'User' }}</span>
                                     <i :class="['fas transition-transform duration-200', showUserMenu ? 'fa-chevron-up' : 'fa-chevron-down', 'text-xs']"></i>
                                 </button>
-                                
+
                                 <transition name="fade">
                                     <div v-if="showUserMenu" class="absolute right-0 mt-2 w-48 bg-white dark:bg-gray-800 rounded-md shadow-lg py-1 z-50 border border-gray-200 dark:border-gray-700">
-                                        <button
-                                            @click="logout"
-                                            class="block w-full text-left px-4 py-2 text-sm text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors duration-200"
-                                        >
+                                        <button @click="logout"
+                                            class="block w-full text-left px-4 py-2 text-sm text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors duration-200">
                                             <i class="fas fa-sign-out-alt mr-2"></i>
                                             Logout
                                         </button>
@@ -177,33 +161,21 @@
             <!-- Main Content -->
             <div class="flex flex-1 min-h-0 overflow-hidden">
                 <!-- Mobile Sidebar Overlay -->
-                <div
-                    v-if="sidebarOpen"
-                    @click="sidebarOpen = false"
-                    class="fixed inset-0 z-20 bg-black bg-opacity-50 lg:hidden"
-                ></div>
-                
+                <div v-if="sidebarOpen" @click="sidebarOpen = false" class="fixed inset-0 z-20 bg-black bg-opacity-50 lg:hidden"></div>
+
                 <!-- Sidebar -->
-                <aside 
-                    :class="[
+                <aside :class="[
                         'fixed lg:static top-16 lg:top-0 bottom-0 lg:bottom-auto left-0 z-30 w-64 bg-white dark:bg-gray-800 shadow-sm transform transition-transform duration-200 ease-in-out lg:translate-x-0 lg:block',
                         sidebarOpen ? 'translate-x-0' : '-translate-x-full'
-                    ]"
-                    class="overflow-y-auto flex-shrink-0 lg:h-full"
-                >
+                    ]" class="overflow-y-auto flex-shrink-0 lg:h-full">
                     <nav class="mt-5 px-2">
                         <div class="space-y-1">
-                            <button
-                                v-for="item in navigation"
-                                :key="item.name"
-                                @click="currentView = item.key; sidebarOpen = false"
-                                :class="[
+                            <button v-for="item in navigation" :key="item.name" @click="currentView = item.key; sidebarOpen = false" :class="[
                                     'group flex items-center px-2 py-2 text-base font-medium rounded-md w-full text-left',
                                     currentView === item.key
                                         ? 'bg-blue-100 dark:bg-blue-900 text-blue-700 dark:text-blue-200'
                                         : 'text-gray-600 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-700'
-                                ]"
-                            >
+                                ]">
                                 <i :class="[item.icon, 'mr-3 text-lg']"></i>
                                 {{ item.name }}
                             </button>
@@ -221,7 +193,7 @@
                                 <h2 class="text-2xl font-bold text-gray-900 dark:text-white">Dashboard</h2>
                                 <p class="mt-1 text-sm text-gray-600 dark:text-gray-400">Monitor your zbx-np service</p>
                             </div>
-                            
+
                             <!-- Stats Cards -->
                             <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 lg:gap-6 mb-6">
                                 <div class="bg-white dark:bg-gray-800 rounded-lg shadow p-4 lg:p-6">
@@ -235,7 +207,7 @@
                                         </div>
                                     </div>
                                 </div>
-                                
+
                                 <div class="bg-white dark:bg-gray-800 rounded-lg shadow p-4 lg:p-6">
                                     <div class="flex items-center">
                                         <div class="p-3 rounded-full bg-green-100 dark:bg-green-900">
@@ -247,7 +219,7 @@
                                         </div>
                                     </div>
                                 </div>
-                                
+
                                 <div class="bg-white dark:bg-gray-800 rounded-lg shadow p-4 lg:p-6">
                                     <div class="flex items-center">
                                         <div class="p-3 rounded-full" :class="{
@@ -276,21 +248,21 @@
                                                 'text-gray-600 dark:text-gray-400': mqttStatus.status === 'disabled' || mqttStatus.status === 'stopped',
                                                 'text-red-600 dark:text-red-400': mqttStatus.status === 'unknown' || mqttStatus.status === 'error'
                                             }">
-                                                {{ 
-                                                    mqttStatus.enabled ? 
-                                                        (mqttStatus.status === 'running' ? 'Running' : 
-                                                         mqttStatus.status === 'connecting' ? 'Connecting' :
-                                                         mqttStatus.status === 'reconnecting' ? 'Reconnecting' :
-                                                         mqttStatus.status === 'starting' ? 'Starting' :
-                                                         mqttStatus.status === 'error' ? 'Error' :
-                                                         mqttStatus.status === 'disconnected' ? 'Disconnected' :
-                                                         'Unknown') : 'Disabled' 
+                                                {{
+                                                mqttStatus.enabled ?
+                                                (mqttStatus.status === 'running' ? 'Running' :
+                                                mqttStatus.status === 'connecting' ? 'Connecting' :
+                                                mqttStatus.status === 'reconnecting' ? 'Reconnecting' :
+                                                mqttStatus.status === 'starting' ? 'Starting' :
+                                                mqttStatus.status === 'error' ? 'Error' :
+                                                mqttStatus.status === 'disconnected' ? 'Disconnected' :
+                                                'Unknown') : 'Disabled'
                                                 }}
                                             </p>
                                         </div>
                                     </div>
                                 </div>
-                                
+
                                 <div class="bg-white dark:bg-gray-800 rounded-lg shadow p-4 lg:p-6">
                                     <div class="flex items-center">
                                         <div class="p-3 rounded-full bg-purple-100 dark:bg-purple-900">
@@ -315,12 +287,7 @@
                                     <div v-if="messages.length === 0" class="text-gray-500 dark:text-gray-400">
                                         No messages yet...
                                     </div>
-                                    <div
-                                        v-for="(message, index) in messages.slice(0, 20)"
-                                        :key="index"
-                                        class="mb-1 text-gray-800 dark:text-gray-200 break-words"
-                                        style="line-height: 1.4;"
-                                    >
+                                    <div v-for="(message, index) in messages.slice(0, 20)" :key="index" class="mb-1 text-gray-800 dark:text-gray-200 break-words" style="line-height: 1.4;">
                                         {{ message }}
                                     </div>
                                 </div>
@@ -335,118 +302,85 @@
                                 <h2 class="text-2xl font-bold text-gray-900 dark:text-white">Configuration</h2>
                                 <p class="mt-1 text-sm text-gray-600 dark:text-gray-400">Manage system settings</p>
                             </div>
-                            
+
                             <div class="bg-white dark:bg-gray-800 rounded-lg shadow">
                                 <form @submit.prevent="saveConfig" class="p-4 lg:p-6 space-y-6">
-                                <!-- HTTP Settings -->
-                                <div>
-                                    <h3 class="text-lg font-medium text-gray-900 dark:text-white mb-4">HTTP Settings</h3>
-                                    <div class="grid grid-cols-1 gap-4">
-                                        <div>
-                                            <label class="block text-sm font-medium text-gray-700 dark:text-gray-300">Port</label>
-                                            <input
-                                                v-model.number="config.http.port"
-                                                type="number"
-                                                class="mt-1 block w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md bg-white dark:bg-gray-700 text-gray-900 dark:text-white"
-                                            >
-                                        </div>
-                                    </div>
-                                </div>
-
-                                <!-- Divider -->
-                                <hr class="border-gray-200 dark:border-gray-700">
-
-                                <!-- MQTT Settings -->
-                                <div>
-                                    <h3 class="text-lg font-medium text-gray-900 dark:text-white mb-4">MQTT Settings</h3>
-                                    <div class="space-y-4">
-                                        <div>
-                                            <label class="flex items-center">
-                                                <input
-                                                    v-model="config.mqtt.enabled"
-                                                    type="checkbox"
-                                                    class="rounded border-gray-300 dark:border-gray-600"
-                                                >
-                                                <span class="ml-2 text-sm font-medium text-gray-700 dark:text-gray-300">Enable MQTT</span>
-                                            </label>
-                                        </div>
-                                        
-                                        <div v-if="config.mqtt.enabled" class="grid grid-cols-1 lg:grid-cols-2 gap-4">
+                                    <!-- HTTP Settings -->
+                                    <div>
+                                        <h3 class="text-lg font-medium text-gray-900 dark:text-white mb-4">HTTP Settings</h3>
+                                        <div class="grid grid-cols-1 gap-4">
                                             <div>
-                                                <label class="block text-sm font-medium text-gray-700 dark:text-gray-300">Broker URL</label>
-                                                <input
-                                                    v-model="config.mqtt.url"
-                                                    type="text"
-                                                    class="mt-1 block w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md bg-white dark:bg-gray-700 text-gray-900 dark:text-white"
-                                                    placeholder="mqtts://broker.hivemq.cloud:8883"
-                                                >
-                                            </div>
-                                            <div>
-                                                <label class="block text-sm font-medium text-gray-700 dark:text-gray-300">Client ID</label>
-                                                <input
-                                                    v-model="config.mqtt.id"
-                                                    type="text"
-                                                    class="mt-1 block w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md bg-white dark:bg-gray-700 text-gray-900 dark:text-white"
-                                                    placeholder="client-id"
-                                                >
-                                            </div>
-                                            <div>
-                                                <label class="block text-sm font-medium text-gray-700 dark:text-gray-300">Username</label>
-                                                <input
-                                                    v-model="config.mqtt.login"
-                                                    type="text"
-                                                    class="mt-1 block w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md bg-white dark:bg-gray-700 text-gray-900 dark:text-white"
-                                                    placeholder="mqtt-username"
-                                                >
-                                            </div>
-                                            <div>
-                                                <label class="block text-sm font-medium text-gray-700 dark:text-gray-300">Password</label>
-                                                <input
-                                                    v-model="config.mqtt.password"
-                                                    type="password"
-                                                    class="mt-1 block w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md bg-white dark:bg-gray-700 text-gray-900 dark:text-white"
-                                                    placeholder="mqtt-password"
-                                                >
-                                            </div>
-                                            <div>
-                                                <label class="block text-sm font-medium text-gray-700 dark:text-gray-300">Topic</label>
-                                                <input
-                                                    v-model="config.mqtt.topic"
-                                                    type="text"
-                                                    class="mt-1 block w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md bg-white dark:bg-gray-700 text-gray-900 dark:text-white"
-                                                    placeholder="zabbix/test"
-                                                >
-                                            </div>
-                                            <div>
-                                                <label class="block text-sm font-medium text-gray-700 dark:text-gray-300">Period (seconds)</label>
-                                                <input
-                                                    v-model.number="config.mqtt.period"
-                                                    type="number"
-                                                    min="0"
-                                                    class="mt-1 block w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md bg-white dark:bg-gray-700 text-gray-900 dark:text-white"
-                                                    placeholder="0"
-                                                >
+                                                <label class="block text-sm font-medium text-gray-700 dark:text-gray-300">Port</label>
+                                                <input v-model.number="config.http.port" type="number"
+                                                    class="mt-1 block w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md bg-white dark:bg-gray-700 text-gray-900 dark:text-white">
                                             </div>
                                         </div>
                                     </div>
-                                </div>
 
-                                <div class="flex flex-col sm:flex-row justify-end space-y-3 sm:space-y-0 sm:space-x-3">
-                                    <button
-                                        type="button"
-                                        @click="testConfig"
-                                        class="px-4 py-2 border border-gray-300 text-gray-700 dark:text-gray-300 rounded-md hover:bg-gray-50 dark:hover:bg-gray-700"
-                                    >
-                                        Test Configuration
-                                    </button>
-                                    <button
-                                        type="submit"
-                                        :disabled="isSaving"
-                                        class="px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700 disabled:opacity-50"
-                                    >
-                                        {{ isSaving ? 'Saving...' : 'Save Configuration' }}
-                                    </button>
-                                </div>
+                                    <!-- Divider -->
+                                    <hr class="border-gray-200 dark:border-gray-700">
+
+                                    <!-- MQTT Settings -->
+                                    <div>
+                                        <h3 class="text-lg font-medium text-gray-900 dark:text-white mb-4">MQTT Settings</h3>
+                                        <div class="space-y-4">
+                                            <div>
+                                                <label class="flex items-center">
+                                                    <input v-model="config.mqtt.enabled" type="checkbox" class="rounded border-gray-300 dark:border-gray-600">
+                                                    <span class="ml-2 text-sm font-medium text-gray-700 dark:text-gray-300">Enable MQTT</span>
+                                                </label>
+                                            </div>
+
+                                            <div v-if="config.mqtt.enabled" class="grid grid-cols-1 lg:grid-cols-2 gap-4">
+                                                <div>
+                                                    <label class="block text-sm font-medium text-gray-700 dark:text-gray-300">Broker URL</label>
+                                                    <input v-model="config.mqtt.url" type="text"
+                                                        class="mt-1 block w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md bg-white dark:bg-gray-700 text-gray-900 dark:text-white"
+                                                        placeholder="mqtts://broker.hivemq.cloud:8883">
+                                                </div>
+                                                <div>
+                                                    <label class="block text-sm font-medium text-gray-700 dark:text-gray-300">Client ID</label>
+                                                    <input v-model="config.mqtt.id" type="text"
+                                                        class="mt-1 block w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md bg-white dark:bg-gray-700 text-gray-900 dark:text-white"
+                                                        placeholder="client-id">
+                                                </div>
+                                                <div>
+                                                    <label class="block text-sm font-medium text-gray-700 dark:text-gray-300">Username</label>
+                                                    <input v-model="config.mqtt.login" type="text"
+                                                        class="mt-1 block w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md bg-white dark:bg-gray-700 text-gray-900 dark:text-white"
+                                                        placeholder="mqtt-username">
+                                                </div>
+                                                <div>
+                                                    <label class="block text-sm font-medium text-gray-700 dark:text-gray-300">Password</label>
+                                                    <input v-model="config.mqtt.password" type="password"
+                                                        class="mt-1 block w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md bg-white dark:bg-gray-700 text-gray-900 dark:text-white"
+                                                        placeholder="mqtt-password">
+                                                </div>
+                                                <div>
+                                                    <label class="block text-sm font-medium text-gray-700 dark:text-gray-300">Topic</label>
+                                                    <input v-model="config.mqtt.topic" type="text"
+                                                        class="mt-1 block w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md bg-white dark:bg-gray-700 text-gray-900 dark:text-white"
+                                                        placeholder="zabbix/test">
+                                                </div>
+                                                <div>
+                                                    <label class="block text-sm font-medium text-gray-700 dark:text-gray-300">Period (seconds)</label>
+                                                    <input v-model.number="config.mqtt.period" type="number" min="0"
+                                                        class="mt-1 block w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md bg-white dark:bg-gray-700 text-gray-900 dark:text-white"
+                                                        placeholder="0">
+                                                </div>
+                                            </div>
+                                        </div>
+                                    </div>
+
+                                    <div class="flex flex-col sm:flex-row justify-end space-y-3 sm:space-y-0 sm:space-x-3">
+                                        <button type="button" @click="testConfig"
+                                            class="px-4 py-2 border border-gray-300 text-gray-700 dark:text-gray-300 rounded-md hover:bg-gray-50 dark:hover:bg-gray-700">
+                                            Test Configuration
+                                        </button>
+                                        <button type="submit" :disabled="isSaving" class="px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700 disabled:opacity-50">
+                                            {{ isSaving ? 'Saving...' : 'Save Configuration' }}
+                                        </button>
+                                    </div>
                             </div>
                         </div>
                     </div>
@@ -458,202 +392,150 @@
                                 <h2 class="text-2xl font-bold text-gray-900 dark:text-white">Users & Tokens</h2>
                                 <p class="mt-1 text-sm text-gray-600 dark:text-gray-400">Manage users and API tokens</p>
                             </div>
-                        
-                        <!-- Tab Navigation -->
-                        <div class="border-b border-gray-200 dark:border-gray-700 mb-6">
-                            <nav class="-mb-px flex space-x-4 lg:space-x-8 overflow-x-auto">
-                                <button
-                                    @click="activeTab = 'users'"
-                                    :class="[
+
+                            <!-- Tab Navigation -->
+                            <div class="border-b border-gray-200 dark:border-gray-700 mb-6">
+                                <nav class="-mb-px flex space-x-4 lg:space-x-8 overflow-x-auto">
+                                    <button @click="activeTab = 'users'" :class="[
                                         'py-2 px-1 border-b-2 font-medium text-sm whitespace-nowrap',
                                         activeTab === 'users'
                                             ? 'border-blue-500 text-blue-600 dark:text-blue-400'
                                             : 'border-transparent text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-300'
-                                    ]"
-                                >
-                                    Users
-                                </button>
-                                <button
-                                    @click="activeTab = 'tokens'"
-                                    :class="[
+                                    ]">
+                                        Users
+                                    </button>
+                                    <button @click="activeTab = 'tokens'" :class="[
                                         'py-2 px-1 border-b-2 font-medium text-sm whitespace-nowrap',
                                         activeTab === 'tokens'
                                             ? 'border-blue-500 text-blue-600 dark:text-blue-400'
                                             : 'border-transparent text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-300'
-                                    ]"
-                                >
-                                    API Tokens
-                                </button>
-                            </nav>
-                        </div>
-                        
-                        <!-- Users Tab -->
-                        <div v-show="activeTab === 'users'">
-                            <!-- Add User Form -->
-                            <div class="bg-white dark:bg-gray-800 rounded-lg shadow p-4 lg:p-6 mb-6">
-                                <h3 class="text-lg font-medium text-gray-900 dark:text-white mb-4">Add New User</h3>
-                                <form @submit.prevent="addUser" class="flex flex-col lg:flex-row gap-4">
-                                    <input
-                                        v-model="newUser.username"
-                                        type="text"
-                                        placeholder="Username"
-                                        required
-                                        class="flex-1 px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md bg-white dark:bg-gray-700 text-gray-900 dark:text-white"
-                                    >
-                                    <input
-                                        v-model="newUser.password"
-                                        type="password"
-                                        placeholder="Password"
-                                        required
-                                        class="flex-1 px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md bg-white dark:bg-gray-700 text-gray-900 dark:text-white"
-                                    >
-                                    <button
-                                        type="submit"
-                                        :disabled="isAddingUser"
-                                        class="px-6 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700 disabled:opacity-50 whitespace-nowrap"
-                                    >
-                                        {{ isAddingUser ? 'Adding...' : 'Add User' }}
+                                    ]">
+                                        API Tokens
                                     </button>
-                                </form>
+                                </nav>
                             </div>
-                            
-                            <!-- Users List -->
-                            <div class="bg-white dark:bg-gray-800 rounded-lg shadow">
-                                <div class="px-6 py-4 border-b border-gray-200 dark:border-gray-700">
-                                    <h3 class="text-lg font-medium text-gray-900 dark:text-white">Users</h3>
+
+                            <!-- Users Tab -->
+                            <div v-show="activeTab === 'users'">
+                                <!-- Add User Form -->
+                                <div class="bg-white dark:bg-gray-800 rounded-lg shadow p-4 lg:p-6 mb-6">
+                                    <h3 class="text-lg font-medium text-gray-900 dark:text-white mb-4">Add New User</h3>
+                                    <form @submit.prevent="addUser" class="flex flex-col lg:flex-row lg:items-center">
+                                        <input v-model="newUser.username" type="text" placeholder="Username" required
+                                            class="flex-1 px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md bg-white dark:bg-gray-700 text-gray-900 dark:text-white mr-4 mb-4 lg:mb-0 lg:mr-4">
+                                        <input v-model="newUser.password" type="password" placeholder="Password" required
+                                            class="flex-1 px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md bg-white dark:bg-gray-700 text-gray-900 dark:text-white mr-4 mb-4 lg:mb-0 lg:mr-4">
+                                        <button type="submit" :disabled="isAddingUser" class="px-6 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700 disabled:opacity-50 whitespace-nowrap">
+                                            {{ isAddingUser ? 'Adding...' : 'Add User' }}
+                                        </button>
+                                    </form>
                                 </div>
-                                <div class="divide-y divide-gray-200 dark:divide-gray-700">
-                                    <div v-if="users.length === 0" class="px-6 py-8 text-center text-gray-500 dark:text-gray-400">
-                                        No users found. Add your first user above.
+
+
+                                <!-- Users List -->
+                                <div class="bg-white dark:bg-gray-800 rounded-lg shadow">
+                                    <div class="px-6 py-4 border-b border-gray-200 dark:border-gray-700">
+                                        <h3 class="text-lg font-medium text-gray-900 dark:text-white">Users</h3>
                                     </div>
-                                    <div
-                                        v-for="user in users"
-                                        :key="user.id"
-                                        class="px-4 lg:px-6 py-4 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3"
-                                    >
-                                        <div class="flex-1 min-w-0">
-                                            <p class="text-sm font-medium text-gray-900 dark:text-white">{{ user.username }}</p>
-                                            <p class="text-sm text-gray-500 dark:text-gray-400 truncate">Created: {{ formatDate(user.created_at) }}</p>
+                                    <div class="divide-y divide-gray-200 dark:divide-gray-700">
+                                        <div v-if="users.length === 0" class="px-6 py-8 text-center text-gray-500 dark:text-gray-400">
+                                            No users found. Add your first user above.
                                         </div>
-                                        <div class="flex space-x-2">
-                                            <button
-                                                @click="editUser(user)"
-                                                class="text-blue-600 hover:text-blue-700 text-sm font-medium"
-                                            >
-                                                Edit
-                                            </button>
-                                            <button
-                                                @click="deleteUser(user.id)"
-                                                class="text-red-600 hover:text-red-700 text-sm font-medium"
-                                                v-if="user.username !== 'admin'"
-                                            >
-                                                Delete
-                                            </button>
+                                        <div v-for="user in users" :key="user.id" class="px-4 lg:px-6 py-4 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
+                                            <div class="flex-1 min-w-0">
+                                                <p class="text-sm font-medium text-gray-900 dark:text-white">{{ user.username }}</p>
+                                                <p class="text-sm text-gray-500 dark:text-gray-400 truncate">Created: {{ formatDate(user.created_at) }}</p>
+                                            </div>
+                                            <div class="flex space-x-3">
+                                                <button @click="editUser(user)" class="text-blue-600 hover:text-blue-700 text-sm font-medium">
+                                                    Edit
+                                                </button>
+                                                <button @click="deleteUser(user.id)" class="text-red-600 hover:text-red-700 text-sm font-medium" v-if="user.username !== 'admin'">
+                                                    Delete
+                                                </button>
+                                            </div>
                                         </div>
                                     </div>
                                 </div>
                             </div>
-                        </div>
-                        
-                        <!-- API Tokens Tab -->
-                        <div v-show="activeTab === 'tokens'">
-                            <!-- Generate Token Form -->
-                            <div class="bg-white dark:bg-gray-800 rounded-lg shadow p-4 lg:p-6 mb-6">
-                                <h3 class="text-lg font-medium text-gray-900 dark:text-white mb-4">Generate API Token</h3>
-                                <form @submit.prevent="generateToken" class="flex flex-col sm:flex-row sm:items-end gap-3 sm:gap-4">
-                                    <div class="flex-1">
-                                        <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1 sm:hidden">Token Name</label>
-                                        <input
-                                            v-model="newToken.name"
-                                            type="text"
-                                            placeholder="Token Name"
-                                            required
-                                            class="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md bg-white dark:bg-gray-700 text-gray-900 dark:text-white text-sm sm:text-base"
-                                        >
+
+                            <!-- API Tokens Tab -->
+                            <div v-show="activeTab === 'tokens'">
+                                <!-- Generate Token Form -->
+                                <div class="bg-white dark:bg-gray-800 rounded-lg shadow p-4 lg:p-6 mb-6">
+                                    <h3 class="text-lg font-medium text-gray-900 dark:text-white mb-4">Generate API Token</h3>
+                                    <form @submit.prevent="generateToken" class="flex flex-col sm:flex-row sm:items-end gap-3 sm:gap-4">
+                                        <div class="flex-1">
+                                            <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1 sm:hidden">Token Name</label>
+                                            <input v-model="newToken.name" type="text" placeholder="Token Name" required
+                                                class="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md bg-white dark:bg-gray-700 text-gray-900 dark:text-white text-sm sm:text-base">
+                                        </div>
+                                        <div class="flex-1 sm:flex-initial sm:min-w-[140px]">
+                                            <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1 sm:hidden">Expires In</label>
+                                            <select v-model="newToken.expires_in"
+                                                class="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md bg-white dark:bg-gray-700 text-gray-900 dark:text-white text-sm sm:text-base">
+                                                <option value="30">30 days</option>
+                                                <option value="90">90 days</option>
+                                                <option value="365">1 year</option>
+                                                <option value="0">Never expires</option>
+                                            </select>
+                                        </div>
+                                        <button type="submit" :disabled="isGeneratingToken"
+                                            class="w-full sm:w-auto px-4 py-2 bg-green-600 text-white rounded-md hover:bg-green-700 disabled:opacity-50 text-sm sm:text-base whitespace-nowrap">
+                                            {{ isGeneratingToken ? 'Generating...' : 'Generate Token' }}
+                                        </button>
+                                    </form>
+                                </div>
+
+                                <!-- New Token Display -->
+                                <div v-if="generatedToken" class="bg-green-50 dark:bg-green-900 border border-green-200 dark:border-green-700 rounded-lg p-4 mb-6">
+                                    <h4 class="text-lg font-medium text-green-800 dark:text-green-200 mb-2">New API Token Generated</h4>
+                                    <p class="text-sm text-green-700 dark:text-green-300 mb-2">Copy this token now - it won't be shown again:</p>
+                                    <div class="bg-white dark:bg-gray-800 border rounded p-3 font-mono text-sm break-all text-gray-900 dark:text-gray-100">
+                                        {{ generatedToken }}
                                     </div>
-                                    <div class="flex-1 sm:flex-initial sm:min-w-[140px]">
-                                        <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1 sm:hidden">Expires In</label>
-                                        <select
-                                            v-model="newToken.expires_in"
-                                            class="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md bg-white dark:bg-gray-700 text-gray-900 dark:text-white text-sm sm:text-base"
-                                        >
-                                            <option value="30">30 days</option>
-                                            <option value="90">90 days</option>
-                                            <option value="365">1 year</option>
-                                            <option value="0">Never expires</option>
-                                        </select>
-                                    </div>
-                                    <button
-                                        type="submit"
-                                        :disabled="isGeneratingToken"
-                                        class="w-full sm:w-auto px-4 py-2 bg-green-600 text-white rounded-md hover:bg-green-700 disabled:opacity-50 text-sm sm:text-base whitespace-nowrap"
-                                    >
-                                        {{ isGeneratingToken ? 'Generating...' : 'Generate Token' }}
+                                    <button @click="copyToken" class="mt-2 text-sm text-green-600 dark:text-green-400 hover:text-green-700 dark:hover:text-green-300">
+                                        <i class="fas fa-copy mr-1"></i>
+                                        Copy to clipboard
                                     </button>
-                                </form>
-                            </div>
-                            
-                            <!-- New Token Display -->
-                            <div v-if="generatedToken" class="bg-green-50 dark:bg-green-900 border border-green-200 dark:border-green-700 rounded-lg p-4 mb-6">
-                                <h4 class="text-lg font-medium text-green-800 dark:text-green-200 mb-2">New API Token Generated</h4>
-                                <p class="text-sm text-green-700 dark:text-green-300 mb-2">Copy this token now - it won't be shown again:</p>
-                                <div class="bg-white dark:bg-gray-800 border rounded p-3 font-mono text-sm break-all text-gray-900 dark:text-gray-100">
-                                    {{ generatedToken }}
                                 </div>
-                                <button
-                                    @click="copyToken"
-                                    class="mt-2 text-sm text-green-600 dark:text-green-400 hover:text-green-700 dark:hover:text-green-300"
-                                >
-                                    <i class="fas fa-copy mr-1"></i>
-                                    Copy to clipboard
-                                </button>
-                            </div>
-                            
-                            <!-- Tokens List -->
-                            <div class="bg-white dark:bg-gray-800 rounded-lg shadow">
-                                <div class="px-6 py-4 border-b border-gray-200 dark:border-gray-700">
-                                    <h3 class="text-lg font-medium text-gray-900 dark:text-white">API Tokens</h3>
-                                </div>
-                                <div class="divide-y divide-gray-200 dark:divide-gray-700">
-                                    <div v-if="tokens.length === 0" class="px-6 py-8 text-center text-gray-500 dark:text-gray-400">
-                                        No API tokens found. Generate your first token above.
+
+                                <!-- Tokens List -->
+                                <div class="bg-white dark:bg-gray-800 rounded-lg shadow">
+                                    <div class="px-6 py-4 border-b border-gray-200 dark:border-gray-700">
+                                        <h3 class="text-lg font-medium text-gray-900 dark:text-white">API Tokens</h3>
                                     </div>
-                                    <div
-                                        v-for="token in tokens"
-                                        :key="token.id"
-                                        class="px-6 py-4 flex items-center justify-between"
-                                    >
-                                        <div>
-                                            <p class="text-sm font-medium text-gray-900 dark:text-white">{{ token.name }}</p>
-                                            <p class="text-sm text-gray-500 dark:text-gray-400">
-                                                Created: {{ formatDate(token.created_at) }}
-                                                <span v-if="token.expires_at"> | Expires: {{ formatDate(token.expires_at) }}</span>
-                                                <span v-else> | Never expires</span>
-                                            </p>
-                                            <p class="text-xs font-mono text-gray-400 dark:text-gray-500">{{ token.token_preview }}...</p>
+                                    <div class="divide-y divide-gray-200 dark:divide-gray-700">
+                                        <div v-if="tokens.length === 0" class="px-6 py-8 text-center text-gray-500 dark:text-gray-400">
+                                            No API tokens found. Generate your first token above.
                                         </div>
-                                        <div class="flex items-center space-x-2">
-                                            <span
-                                                :class="[
+                                        <div v-for="token in tokens" :key="token.id" class="px-6 py-4 flex items-center justify-between">
+                                            <div>
+                                                <p class="text-sm font-medium text-gray-900 dark:text-white">{{ token.name }}</p>
+                                                <p class="text-sm text-gray-500 dark:text-gray-400">
+                                                    Created: {{ formatDate(token.created_at) }}
+                                                    <span v-if="token.expires_at"> | Expires: {{ formatDate(token.expires_at) }}</span>
+                                                    <span v-else> | Never expires</span>
+                                                </p>
+                                                <p class="text-xs font-mono text-gray-400 dark:text-gray-500">{{ token.token_preview }}...</p>
+                                            </div>
+                                            <div class="flex items-center space-x-3">
+                                                <span :class="[
                                                     'px-2 py-1 text-xs rounded-full',
                                                     token.is_active
                                                         ? 'bg-green-100 dark:bg-green-900 text-green-800 dark:text-green-200'
                                                         : 'bg-red-100 dark:bg-red-900 text-red-800 dark:text-red-200'
-                                                ]"
-                                            >
-                                                {{ token.is_active ? 'Active' : 'Expired' }}
-                                            </span>
-                                            <button
-                                                @click="revokeToken(token.id)"
-                                                class="text-red-600 hover:text-red-700 text-sm font-medium"
-                                            >
-                                                Revoke
-                                            </button>
+                                                ]">
+                                                    {{ token.is_active ? 'Active' : 'Expired' }}
+                                                </span>
+                                                <button @click="revokeToken(token.id)" class="text-red-600 hover:text-red-700 text-sm font-medium">
+                                                    Revoke
+                                                </button>
+                                            </div>
                                         </div>
                                     </div>
                                 </div>
                             </div>
-                        </div>
                         </div>
                     </div>
                 </main>
@@ -672,7 +554,7 @@
                     user: null,
                     token: null,
                     showUserMenu: false,
-                    
+
                     // Login form
                     loginForm: {
                         username: '',
@@ -680,36 +562,36 @@
                     },
                     isLoggingIn: false,
                     loginError: '',
-                    
+
                     // UI state
                     currentView: 'dashboard',
                     darkMode: localStorage.getItem('darkMode') === 'true',
                     sidebarOpen: false, // Mobile sidebar state
-                    
+
                     // Navigation
                     navigation: [
                         { name: 'Dashboard', key: 'dashboard', icon: 'fas fa-tachometer-alt' },
                         { name: 'Configuration', key: 'config', icon: 'fas fa-cog' },
                         { name: 'Users & Tokens', key: 'users', icon: 'fas fa-users' }
                     ],
-                    
+
                     // WebSocket
                     socket: null,
                     wsConnected: false,
                     messages: [],
-                    
+
                     // Data
                     stats: {},
                     config: {
                         http: { port: 7000 },
-                        mqtt: { 
-                            enabled: false, 
-                            url: '', 
-                            id: '', 
-                            login: '', 
-                            password: '', 
-                            period: 0, 
-                            topic: '' 
+                        mqtt: {
+                            enabled: false,
+                            url: '',
+                            id: '',
+                            login: '',
+                            password: '',
+                            period: 0,
+                            topic: ''
                         }
                     },
                     mqttStatus: {
@@ -720,12 +602,12 @@
                     },
                     users: [],
                     tokens: [],
-                    
+
                     // Form data
                     newUser: { username: '', password: '' },
                     newToken: { name: '', expires_in: 30 },
                     generatedToken: null,
-                    
+
                     // Form states
                     isSaving: false,
                     isAddingUser: false,
@@ -733,44 +615,44 @@
                     activeTab: 'users'
                 }
             },
-            
+
             mounted() {
                 this.applyDarkMode();
                 this.checkAuthStatus();
                 this.initWebSocket();
-                
+
                 // Click outside to close user menu
                 document.addEventListener('click', this.handleClickOutside);
             },
-            
+
             beforeUnmount() {
                 document.removeEventListener('click', this.handleClickOutside);
             },
-            
+
             methods: {
                 // Authentication methods
                 async handleLogin() {
                     this.isLoggingIn = true;
                     this.loginError = '';
-                    
+
                     try {
                         const response = await fetch('/api/auth/login', {
                             method: 'POST',
                             headers: { 'Content-Type': 'application/json' },
                             body: JSON.stringify(this.loginForm)
                         });
-                        
+
                         const data = await response.json();
-                        
+
                         if (response.ok && data.success) {
                             // Store authentication data
                             this.isAuthenticated = true;
                             this.user = { username: this.loginForm.username };
-                            
+
                             // Store in localStorage for persistence
                             localStorage.setItem('zbx_authenticated', 'true');
                             localStorage.setItem('zbx_user', JSON.stringify(this.user));
-                            
+
                             await this.loadInitialData();
                         } else {
                             this.loginError = data.message || 'Login failed';
@@ -779,14 +661,14 @@
                         this.loginError = 'Network error. Please try again.';
                         console.error('Login error:', error);
                     }
-                    
+
                     this.isLoggingIn = false;
                 },
-                
+
                 async checkAuthStatus() {
                     const isAuth = localStorage.getItem('zbx_authenticated');
                     const userData = localStorage.getItem('zbx_user');
-                    
+
                     if (isAuth === 'true' && userData) {
                         try {
                             this.user = JSON.parse(userData);
@@ -798,33 +680,33 @@
                         }
                     }
                 },
-                
+
                 logout() {
                     this.isAuthenticated = false;
                     this.user = null;
                     this.token = null;
                     this.showUserMenu = false;
-                    
+
                     localStorage.removeItem('zbx_authenticated');
                     localStorage.removeItem('zbx_user');
                     localStorage.removeItem('zbx_token');
-                    
+
                     if (this.socket) {
                         this.socket.close();
                     }
                 },
-                
+
                 toggleUserMenu() {
                     this.showUserMenu = !this.showUserMenu;
                 },
-                
+
                 handleClickOutside(event) {
                     const userMenuContainer = this.$refs.userMenuContainer;
                     if (userMenuContainer && !userMenuContainer.contains(event.target)) {
                         this.showUserMenu = false;
                     }
                 },
-                
+
                 // API methods
                 async apiRequest(url, options = {}) {
                     const response = await fetch(url, {
@@ -834,10 +716,10 @@
                             ...options.headers
                         }
                     });
-                    
+
                     return response;
                 },
-                
+
                 async loadInitialData() {
                     await Promise.all([
                         this.loadConfig(),
@@ -847,7 +729,7 @@
                         this.loadMqttStatus() // Initial load only
                     ]);
                 },
-                
+
                 async loadConfig() {
                     try {
                         const response = await this.apiRequest('/api/config');
@@ -858,7 +740,7 @@
                         console.error('Failed to load config:', error);
                     }
                 },
-                
+
                 async loadStats() {
                     try {
                         const response = await this.apiRequest('/api/stats');
@@ -869,7 +751,7 @@
                         console.error('Failed to load stats:', error);
                     }
                 },
-                
+
                 async loadUsers() {
                     try {
                         const response = await this.apiRequest('/api/users');
@@ -880,7 +762,7 @@
                         console.error('Failed to load users:', error);
                     }
                 },
-                
+
                 async loadTokens() {
                     try {
                         const response = await this.apiRequest('/api/tokens');
@@ -891,7 +773,7 @@
                         console.error('Failed to load tokens:', error);
                     }
                 },
-                
+
                 async loadMqttStatus() {
                     try {
                         const response = await this.apiRequest('/api/mqtt/status');
@@ -902,7 +784,7 @@
                         console.error('Failed to load MQTT status:', error);
                     }
                 },
-                
+
                 // User management methods
                 async addUser() {
                     this.isAddingUser = true;
@@ -911,7 +793,7 @@
                             method: 'POST',
                             body: JSON.stringify(this.newUser)
                         });
-                        
+
                         if (response?.ok) {
                             const result = await response.json();
                             if (result.success) {
@@ -933,7 +815,7 @@
                     }
                     this.isAddingUser = false;
                 },
-                
+
                 editUser(user) {
                     const newUsername = prompt('Enter new username:', user.username);
                     if (newUsername && newUsername !== user.username) {
@@ -941,14 +823,14 @@
                         alert('User updated successfully!');
                     }
                 },
-                
+
                 async deleteUser(userId) {
                     if (confirm('Are you sure you want to delete this user?')) {
                         try {
                             const response = await this.apiRequest(`/api/users/${userId}`, {
                                 method: 'DELETE'
                             });
-                            
+
                             if (response?.ok) {
                                 const result = await response.json();
                                 if (result.success) {
@@ -970,29 +852,29 @@
                         }
                     }
                 },
-                
+
                 // Token management methods
                 async generateToken() {
                     this.isGeneratingToken = true;
                     this.generatedToken = null;
-                    
+
                     try {
                         const response = await this.apiRequest('/api/tokens', {
                             method: 'POST',
                             body: JSON.stringify(this.newToken)
                         });
-                        
+
                         if (response?.ok) {
                             // Generate a mock token for demonstration
                             const mockToken = 'zbx_' + Math.random().toString(36).substr(2, 32);
                             this.generatedToken = mockToken;
-                            
+
                             // Add to tokens list
                             const newTokenId = this.tokens.length + 1;
-                            const expiresAt = this.newToken.expires_in > 0 
+                            const expiresAt = this.newToken.expires_in > 0
                                 ? new Date(Date.now() + this.newToken.expires_in * 24 * 60 * 60 * 1000).toISOString()
                                 : null;
-                                
+
                             this.tokens.push({
                                 id: newTokenId,
                                 name: this.newToken.name,
@@ -1001,7 +883,7 @@
                                 expires_at: expiresAt,
                                 is_active: true
                             });
-                            
+
                             this.newToken = { name: '', expires_in: 30 };
                         } else {
                             const error = await response.json();
@@ -1012,14 +894,14 @@
                     }
                     this.isGeneratingToken = false;
                 },
-                
+
                 async revokeToken(tokenId) {
                     if (confirm('Are you sure you want to revoke this token?')) {
                         try {
                             const response = await this.apiRequest(`/api/tokens/${tokenId}`, {
                                 method: 'DELETE'
                             });
-                            
+
                             if (response?.ok) {
                                 this.tokens = this.tokens.filter(t => t.id !== tokenId);
                                 alert('Token revoked successfully!');
@@ -1031,7 +913,7 @@
                         }
                     }
                 },
-                
+
                 copyToken() {
                     if (this.generatedToken) {
                         navigator.clipboard.writeText(this.generatedToken).then(() => {
@@ -1041,7 +923,7 @@
                         });
                     }
                 },
-                
+
                 async saveConfig() {
                     this.isSaving = true;
                     try {
@@ -1049,7 +931,7 @@
                             method: 'PUT',
                             body: JSON.stringify(this.config)
                         });
-                        
+
                         if (response?.ok) {
                             alert('Configuration saved successfully!');
                             // MQTT status will be updated automatically via WebSocket
@@ -1062,14 +944,14 @@
                     }
                     this.isSaving = false;
                 },
-                
+
                 async testConfig() {
                     try {
                         const response = await this.apiRequest('/api/config/test', {
                             method: 'POST',
                             body: JSON.stringify(this.config)
                         });
-                        
+
                         if (response?.ok) {
                             const result = await response.json();
                             alert('Configuration test completed. Check console for details.');
@@ -1079,26 +961,26 @@
                         alert('Failed to test configuration: ' + error.message);
                     }
                 },
-                
+
                 // WebSocket methods
                 initWebSocket() {
                     const protocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
                     const host = window.location.hostname;
                     const wsUrl = `${protocol}//${host}:2794`;
-                    
+
                     try {
                         this.socket = new WebSocket(wsUrl, 'rust-websocket');
-                        
+
                         this.socket.onopen = () => {
                             this.wsConnected = true;
                             console.log('WebSocket connected');
                         };
-                        
+
                         this.socket.onmessage = (event) => {
                             try {
                                 // Try to parse as JSON for structured messages
                                 const message = JSON.parse(event.data);
-                                
+
                                 if (message.type === 'mqtt_status') {
                                     // Update MQTT status from WebSocket
                                     this.mqttStatus = message.data;
@@ -1117,14 +999,14 @@
                                 }
                             }
                         };
-                        
+
                         this.socket.onclose = () => {
                             this.wsConnected = false;
                             console.log('WebSocket disconnected');
                             // Reconnect after 5 seconds
                             setTimeout(() => this.initWebSocket(), 5000);
                         };
-                        
+
                         this.socket.onerror = (error) => {
                             console.error('WebSocket error:', error);
                             this.wsConnected = false;
@@ -1133,14 +1015,14 @@
                         console.error('Failed to create WebSocket:', error);
                     }
                 },
-                
+
                 // UI methods
                 toggleDarkMode() {
                     this.darkMode = !this.darkMode;
                     localStorage.setItem('darkMode', this.darkMode);
                     this.applyDarkMode();
                 },
-                
+
                 applyDarkMode() {
                     if (this.darkMode) {
                         document.documentElement.classList.add('dark');
@@ -1148,7 +1030,7 @@
                         document.documentElement.classList.remove('dark');
                     }
                 },
-                
+
                 formatDate(dateString) {
                     return new Date(dateString).toLocaleString();
                 }
@@ -1156,4 +1038,5 @@
         }).mount('#app');
     </script>
 </body>
+
 </html>
