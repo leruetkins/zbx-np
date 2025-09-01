@@ -76,9 +76,14 @@ fn get_messages() -> MutexGuard<'static, Vec<String>> {
 fn send_message(message: &str) {
     let senders = SENDERS.lock().unwrap();
     
-    // Clean and limit message length for WebSocket safety
+    // Clean message for WebSocket safety - allow UTF-8 text including Russian/Cyrillic
+    // but filter out problematic control characters that could break WebSocket connections
     let clean_message = message.chars()
-        .filter(|c| c.is_ascii_graphic() || c.is_ascii_whitespace())
+        .filter(|c| {
+            // Allow printable characters, whitespace, and most Unicode characters
+            // but exclude control characters (except newlines, tabs, carriage returns)
+            !c.is_control() || matches!(c, '\n' | '\r' | '\t')
+        })
         .take(500) // Limit to 500 characters
         .collect::<String>();
     
@@ -912,8 +917,13 @@ fn ws() -> std::io::Result<()> {
                 println!("Sending {} messages to new WebSocket client", messages.len());
                 for message in messages.iter().take(20) { // Send last 20 messages with newest first
                     // Filter out binary or problematic messages and ensure UTF-8 compatibility
+                    // Allow Russian/Cyrillic text but exclude control characters that could break WebSocket
                     let clean_message = message.chars()
-                        .filter(|c| c.is_ascii_graphic() || c.is_ascii_whitespace())
+                        .filter(|c| {
+                            // Allow printable characters, whitespace, and most Unicode characters
+                            // but exclude control characters (except newlines, tabs, carriage returns)
+                            !c.is_control() || matches!(c, '\n' | '\r' | '\t')
+                        })
                         .take(200) // Limit message length to prevent WebSocket issues
                         .collect::<String>();
                     
