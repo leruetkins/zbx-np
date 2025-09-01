@@ -36,13 +36,26 @@
         .fade-enter-from, .fade-leave-to {
             opacity: 0;
         }
+        
+        /* Ensure full height layout without scrolling */
+        html, body {
+            height: 100%;
+            overflow: hidden;
+            margin: 0;
+            padding: 0;
+        }
+        
+        #app {
+            height: 100%;
+            overflow: hidden;
+        }
     </style>
 </head>
 
-<body class="bg-gray-100 dark:bg-gray-900 transition-colors duration-300">
-    <div id="app" v-cloak>
+<body>
+    <div id="app" v-cloak class="h-full bg-gray-100 dark:bg-gray-900 transition-colors duration-300">
         <!-- Login Form -->
-        <div v-if="!isAuthenticated" class="min-h-screen flex items-center justify-center py-12 px-4 sm:px-6 lg:px-8">
+        <div v-if="!isAuthenticated" class="h-full flex items-center justify-center px-4 sm:px-6 lg:px-8">
             <div class="max-w-md w-full space-y-8">
                 <div class="text-center">
                     <i class="fas fa-server text-4xl text-blue-600 dark:text-blue-400 mb-4"></i>
@@ -98,19 +111,27 @@
         </div>
 
         <!-- Main Application -->
-        <div v-else class="min-h-screen bg-gray-50 dark:bg-gray-900">
+        <div v-else class="h-full flex flex-col overflow-hidden bg-gray-50 dark:bg-gray-900">
             <!-- Top Navigation -->
-            <nav class="bg-white dark:bg-gray-800 shadow-sm border-b border-gray-200 dark:border-gray-700">
+            <nav class="flex-shrink-0 bg-white dark:bg-gray-800 shadow-sm border-b border-gray-200 dark:border-gray-700 h-16 relative z-30">
                 <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
                     <div class="flex justify-between h-16">
                         <div class="flex items-center">
+                            <!-- Mobile menu button -->
+                            <button
+                                @click="sidebarOpen = !sidebarOpen"
+                                class="lg:hidden p-2 rounded-md text-gray-600 dark:text-gray-400 hover:text-gray-900 dark:hover:text-white hover:bg-gray-100 dark:hover:bg-gray-700 focus:outline-none focus:ring-2 focus:ring-inset focus:ring-blue-500 mr-3"
+                            >
+                                <i :class="sidebarOpen ? 'fas fa-times' : 'fas fa-bars'" class="text-lg"></i>
+                            </button>
+                            
                             <i class="fas fa-server text-2xl text-blue-600 dark:text-blue-400 mr-3"></i>
                             <h1 class="text-xl font-semibold text-gray-900 dark:text-white">zbx-np Admin</h1>
                         </div>
                         
                         <div class="flex items-center space-x-4">
                             <!-- WebSocket Status -->
-                            <div class="flex items-center space-x-2">
+                            <div class="hidden sm:flex items-center space-x-2">
                                 <div :class="['w-2 h-2 rounded-full', wsConnected ? 'bg-green-500' : 'bg-red-500']"></div>
                                 <span class="text-sm text-gray-600 dark:text-gray-400">
                                     {{ wsConnected ? 'Connected' : 'Disconnected' }}
@@ -132,7 +153,7 @@
                                     class="flex items-center space-x-2 text-sm text-gray-700 dark:text-gray-300 hover:text-gray-900 dark:hover:text-white"
                                 >
                                     <i class="fas fa-user-circle text-lg"></i>
-                                    <span>admin</span>
+                                    <span class="hidden sm:inline">admin</span>
                                     <i :class="['fas transition-transform duration-200', showUserMenu ? 'fa-chevron-up' : 'fa-chevron-down', 'text-xs']"></i>
                                 </button>
                                 
@@ -154,15 +175,28 @@
             </nav>
 
             <!-- Main Content -->
-            <div class="flex">
+            <div class="flex flex-1 min-h-0 overflow-hidden">
+                <!-- Mobile Sidebar Overlay -->
+                <div
+                    v-if="sidebarOpen"
+                    @click="sidebarOpen = false"
+                    class="fixed inset-0 z-20 bg-black bg-opacity-50 lg:hidden"
+                ></div>
+                
                 <!-- Sidebar -->
-                <aside class="w-64 bg-white dark:bg-gray-800 shadow-sm h-screen sticky top-0">
+                <aside 
+                    :class="[
+                        'fixed lg:static top-16 lg:top-0 bottom-0 lg:bottom-auto left-0 z-30 w-64 bg-white dark:bg-gray-800 shadow-sm transform transition-transform duration-200 ease-in-out lg:translate-x-0 lg:block',
+                        sidebarOpen ? 'translate-x-0' : '-translate-x-full'
+                    ]"
+                    class="overflow-y-auto flex-shrink-0 lg:h-full"
+                >
                     <nav class="mt-5 px-2">
                         <div class="space-y-1">
                             <button
                                 v-for="item in navigation"
                                 :key="item.name"
-                                @click="currentView = item.key"
+                                @click="currentView = item.key; sidebarOpen = false"
                                 :class="[
                                     'group flex items-center px-2 py-2 text-base font-medium rounded-md w-full text-left',
                                     currentView === item.key
@@ -178,103 +212,106 @@
                 </aside>
 
                 <!-- Content Area -->
-                <main class="flex-1 p-6">
+                <main class="flex-1 flex flex-col min-h-0 overflow-hidden">
                     <!-- Dashboard View -->
-                    <div v-show="currentView === 'dashboard'">
-                        <div class="mb-6">
-                            <h2 class="text-2xl font-bold text-gray-900 dark:text-white">Dashboard</h2>
-                            <p class="mt-1 text-sm text-gray-600 dark:text-gray-400">Monitor your zbx-np service</p>
-                        </div>
-                        
-                        <!-- Stats Cards -->
-                        <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
-                            <div class="bg-white dark:bg-gray-800 rounded-lg shadow p-6">
-                                <div class="flex items-center">
-                                    <div class="p-3 rounded-full bg-blue-100 dark:bg-blue-900">
-                                        <i class="fas fa-server text-blue-600 dark:text-blue-400"></i>
-                                    </div>
-                                    <div class="ml-4">
-                                        <p class="text-sm font-medium text-gray-600 dark:text-gray-400">Total Requests</p>
-                                        <p class="text-2xl font-semibold text-gray-900 dark:text-white">{{ stats.total_requests || 0 }}</p>
-                                    </div>
-                                </div>
+                    <div v-show="currentView === 'dashboard'" class="flex flex-col h-full overflow-hidden">
+                        <!-- Header Section -->
+                        <div class="flex-shrink-0 p-4 lg:p-6">
+                            <div class="mb-6">
+                                <h2 class="text-2xl font-bold text-gray-900 dark:text-white">Dashboard</h2>
+                                <p class="mt-1 text-sm text-gray-600 dark:text-gray-400">Monitor your zbx-np service</p>
                             </div>
                             
-                            <div class="bg-white dark:bg-gray-800 rounded-lg shadow p-6">
-                                <div class="flex items-center">
-                                    <div class="p-3 rounded-full bg-green-100 dark:bg-green-900">
-                                        <i class="fas fa-check-circle text-green-600 dark:text-green-400"></i>
-                                    </div>
-                                    <div class="ml-4">
-                                        <p class="text-sm font-medium text-gray-600 dark:text-gray-400">Successful</p>
-                                        <p class="text-2xl font-semibold text-gray-900 dark:text-white">{{ stats.successful_requests || 0 }}</p>
-                                    </div>
-                                </div>
-                            </div>
-                            
-                            <div class="bg-white dark:bg-gray-800 rounded-lg shadow p-6">
-                                <div class="flex items-center">
-                                    <div class="p-3 rounded-full" :class="{
-                                        'bg-green-100 dark:bg-green-900': mqttStatus.status === 'running',
-                                        'bg-yellow-100 dark:bg-yellow-900': mqttStatus.status === 'starting' || mqttStatus.status === 'connecting' || mqttStatus.status === 'reconnecting',
-                                        'bg-gray-100 dark:bg-gray-900': mqttStatus.status === 'disabled' || mqttStatus.status === 'stopped',
-                                        'bg-red-100 dark:bg-red-900': mqttStatus.status === 'unknown' || mqttStatus.status === 'error' || mqttStatus.status === 'disconnected'
-                                    }">
-                                        <i class="fas fa-wifi" :class="{
-                                            'text-green-600 dark:text-green-400': mqttStatus.status === 'running',
-                                            'text-yellow-600 dark:text-yellow-400': mqttStatus.status === 'starting' || mqttStatus.status === 'connecting' || mqttStatus.status === 'reconnecting',
-                                            'text-gray-600 dark:text-gray-400': mqttStatus.status === 'disabled' || mqttStatus.status === 'stopped',
-                                            'text-red-600 dark:text-red-400': mqttStatus.status === 'unknown' || mqttStatus.status === 'error' || mqttStatus.status === 'disconnected'
-                                        }"></i>
-                                    </div>
-                                    <div class="ml-4">
-                                        <div class="flex items-center justify-between">
-                                            <p class="text-sm font-medium text-gray-600 dark:text-gray-400">MQTT Status</p>
-                                            <div class="flex items-center space-x-1">
-                                                <div class="w-2 h-2 rounded-full bg-blue-500 animate-pulse" title="Real-time via WebSocket"></div>
-                                            </div>
+                            <!-- Stats Cards -->
+                            <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 lg:gap-6 mb-6">
+                                <div class="bg-white dark:bg-gray-800 rounded-lg shadow p-4 lg:p-6">
+                                    <div class="flex items-center">
+                                        <div class="p-3 rounded-full bg-blue-100 dark:bg-blue-900">
+                                            <i class="fas fa-server text-blue-600 dark:text-blue-400"></i>
                                         </div>
-                                        <p class="text-lg font-semibold" :class="{
-                                            'text-green-600 dark:text-green-400': mqttStatus.status === 'running',
-                                            'text-yellow-600 dark:text-yellow-400': mqttStatus.status === 'starting' || mqttStatus.status === 'connecting' || mqttStatus.status === 'reconnecting',
-                                            'text-gray-600 dark:text-gray-400': mqttStatus.status === 'disabled' || mqttStatus.status === 'stopped',
-                                            'text-red-600 dark:text-red-400': mqttStatus.status === 'unknown' || mqttStatus.status === 'error'
-                                        }">
-                                            {{ 
-                                                mqttStatus.enabled ? 
-                                                    (mqttStatus.status === 'running' ? 'Running' : 
-                                                     mqttStatus.status === 'connecting' ? 'Connecting' :
-                                                     mqttStatus.status === 'reconnecting' ? 'Reconnecting' :
-                                                     mqttStatus.status === 'starting' ? 'Starting' :
-                                                     mqttStatus.status === 'error' ? 'Error' :
-                                                     mqttStatus.status === 'disconnected' ? 'Disconnected' :
-                                                     'Unknown') : 'Disabled' 
-                                            }}
-                                        </p>
+                                        <div class="ml-4">
+                                            <p class="text-sm font-medium text-gray-600 dark:text-gray-400">Total Requests</p>
+                                            <p class="text-xl lg:text-2xl font-semibold text-gray-900 dark:text-white">{{ stats.total_requests || 0 }}</p>
+                                        </div>
                                     </div>
                                 </div>
-                            </div>
-                            
-                            <div class="bg-white dark:bg-gray-800 rounded-lg shadow p-6">
-                                <div class="flex items-center">
-                                    <div class="p-3 rounded-full bg-purple-100 dark:bg-purple-900">
-                                        <i class="fas fa-paper-plane text-purple-600 dark:text-purple-400"></i>
+                                
+                                <div class="bg-white dark:bg-gray-800 rounded-lg shadow p-4 lg:p-6">
+                                    <div class="flex items-center">
+                                        <div class="p-3 rounded-full bg-green-100 dark:bg-green-900">
+                                            <i class="fas fa-check-circle text-green-600 dark:text-green-400"></i>
+                                        </div>
+                                        <div class="ml-4">
+                                            <p class="text-sm font-medium text-gray-600 dark:text-gray-400">Successful</p>
+                                            <p class="text-xl lg:text-2xl font-semibold text-gray-900 dark:text-white">{{ stats.successful_requests || 0 }}</p>
+                                        </div>
                                     </div>
-                                    <div class="ml-4">
-                                        <p class="text-sm font-medium text-gray-600 dark:text-gray-400">Zabbix Sends</p>
-                                        <p class="text-2xl font-semibold text-gray-900 dark:text-white">{{ stats.zabbix_sends || 0 }}</p>
+                                </div>
+                                
+                                <div class="bg-white dark:bg-gray-800 rounded-lg shadow p-4 lg:p-6">
+                                    <div class="flex items-center">
+                                        <div class="p-3 rounded-full" :class="{
+                                            'bg-green-100 dark:bg-green-900': mqttStatus.status === 'running',
+                                            'bg-yellow-100 dark:bg-yellow-900': mqttStatus.status === 'starting' || mqttStatus.status === 'connecting' || mqttStatus.status === 'reconnecting',
+                                            'bg-gray-100 dark:bg-gray-900': mqttStatus.status === 'disabled' || mqttStatus.status === 'stopped',
+                                            'bg-red-100 dark:bg-red-900': mqttStatus.status === 'unknown' || mqttStatus.status === 'error' || mqttStatus.status === 'disconnected'
+                                        }">
+                                            <i class="fas fa-wifi" :class="{
+                                                'text-green-600 dark:text-green-400': mqttStatus.status === 'running',
+                                                'text-yellow-600 dark:text-yellow-400': mqttStatus.status === 'starting' || mqttStatus.status === 'connecting' || mqttStatus.status === 'reconnecting',
+                                                'text-gray-600 dark:text-gray-400': mqttStatus.status === 'disabled' || mqttStatus.status === 'stopped',
+                                                'text-red-600 dark:text-red-400': mqttStatus.status === 'unknown' || mqttStatus.status === 'error' || mqttStatus.status === 'disconnected'
+                                            }"></i>
+                                        </div>
+                                        <div class="ml-4 min-w-0 flex-1">
+                                            <div class="flex items-center justify-between">
+                                                <p class="text-sm font-medium text-gray-600 dark:text-gray-400">MQTT Status</p>
+                                                <div class="flex items-center space-x-1">
+                                                    <div class="w-2 h-2 rounded-full bg-blue-500 animate-pulse" title="Real-time via WebSocket"></div>
+                                                </div>
+                                            </div>
+                                            <p class="text-sm lg:text-lg font-semibold truncate" :class="{
+                                                'text-green-600 dark:text-green-400': mqttStatus.status === 'running',
+                                                'text-yellow-600 dark:text-yellow-400': mqttStatus.status === 'starting' || mqttStatus.status === 'connecting' || mqttStatus.status === 'reconnecting',
+                                                'text-gray-600 dark:text-gray-400': mqttStatus.status === 'disabled' || mqttStatus.status === 'stopped',
+                                                'text-red-600 dark:text-red-400': mqttStatus.status === 'unknown' || mqttStatus.status === 'error'
+                                            }">
+                                                {{ 
+                                                    mqttStatus.enabled ? 
+                                                        (mqttStatus.status === 'running' ? 'Running' : 
+                                                         mqttStatus.status === 'connecting' ? 'Connecting' :
+                                                         mqttStatus.status === 'reconnecting' ? 'Reconnecting' :
+                                                         mqttStatus.status === 'starting' ? 'Starting' :
+                                                         mqttStatus.status === 'error' ? 'Error' :
+                                                         mqttStatus.status === 'disconnected' ? 'Disconnected' :
+                                                         'Unknown') : 'Disabled' 
+                                                }}
+                                            </p>
+                                        </div>
+                                    </div>
+                                </div>
+                                
+                                <div class="bg-white dark:bg-gray-800 rounded-lg shadow p-4 lg:p-6">
+                                    <div class="flex items-center">
+                                        <div class="p-3 rounded-full bg-purple-100 dark:bg-purple-900">
+                                            <i class="fas fa-paper-plane text-purple-600 dark:text-purple-400"></i>
+                                        </div>
+                                        <div class="ml-4">
+                                            <p class="text-sm font-medium text-gray-600 dark:text-gray-400">Zabbix Sends</p>
+                                            <p class="text-xl lg:text-2xl font-semibold text-gray-900 dark:text-white">{{ stats.zabbix_sends || 0 }}</p>
+                                        </div>
                                     </div>
                                 </div>
                             </div>
                         </div>
 
-                        <!-- Real-time Console -->
-                        <div class="bg-white dark:bg-gray-800 rounded-lg shadow">
-                            <div class="p-4 border-b border-gray-200 dark:border-gray-700">
+                        <!-- Real-time Console - Full Height -->
+                        <div class="flex-1 flex flex-col mx-4 lg:mx-6 bg-white dark:bg-gray-800 rounded-lg shadow overflow-hidden">
+                            <div class="flex-shrink-0 p-4 border-b border-gray-200 dark:border-gray-700">
                                 <h3 class="text-lg font-medium text-gray-900 dark:text-white">Real-time Activity</h3>
                             </div>
-                            <div class="p-4">
-                                <div class="h-64 overflow-y-auto bg-gray-50 dark:bg-gray-700 rounded p-4 font-mono text-sm">
+                            <div class="flex-1 p-4 overflow-hidden">
+                                <div class="h-full overflow-y-auto bg-gray-50 dark:bg-gray-700 rounded p-4 font-mono text-xs lg:text-sm">
                                     <div v-if="messages.length === 0" class="text-gray-500 dark:text-gray-400">
                                         No messages yet...
                                     </div>
@@ -292,14 +329,15 @@
                     </div>
 
                     <!-- Configuration View -->
-                    <div v-show="currentView === 'config'">
-                        <div class="mb-6">
-                            <h2 class="text-2xl font-bold text-gray-900 dark:text-white">Configuration</h2>
-                            <p class="mt-1 text-sm text-gray-600 dark:text-gray-400">Manage system settings</p>
-                        </div>
-                        
-                        <div class="bg-white dark:bg-gray-800 rounded-lg shadow">
-                            <form @submit.prevent="saveConfig" class="p-6 space-y-6">
+                    <div v-show="currentView === 'config'" class="flex flex-col h-full overflow-hidden">
+                        <div class="flex-1 overflow-y-auto p-4 lg:p-6">
+                            <div class="mb-6">
+                                <h2 class="text-2xl font-bold text-gray-900 dark:text-white">Configuration</h2>
+                                <p class="mt-1 text-sm text-gray-600 dark:text-gray-400">Manage system settings</p>
+                            </div>
+                            
+                            <div class="bg-white dark:bg-gray-800 rounded-lg shadow">
+                                <form @submit.prevent="saveConfig" class="p-4 lg:p-6 space-y-6">
                                 <!-- HTTP Settings -->
                                 <div>
                                     <h3 class="text-lg font-medium text-gray-900 dark:text-white mb-4">HTTP Settings</h3>
@@ -333,7 +371,7 @@
                                             </label>
                                         </div>
                                         
-                                        <div v-if="config.mqtt.enabled" class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                                        <div v-if="config.mqtt.enabled" class="grid grid-cols-1 lg:grid-cols-2 gap-4">
                                             <div>
                                                 <label class="block text-sm font-medium text-gray-700 dark:text-gray-300">Broker URL</label>
                                                 <input
@@ -393,7 +431,7 @@
                                     </div>
                                 </div>
 
-                                <div class="flex justify-end space-x-3">
+                                <div class="flex flex-col sm:flex-row justify-end space-y-3 sm:space-y-0 sm:space-x-3">
                                     <button
                                         type="button"
                                         @click="testConfig"
@@ -409,24 +447,25 @@
                                         {{ isSaving ? 'Saving...' : 'Save Configuration' }}
                                     </button>
                                 </div>
-                            </form>
+                            </div>
                         </div>
                     </div>
 
                     <!-- Users Management View -->
-                    <div v-show="currentView === 'users'">
-                        <div class="mb-6">
-                            <h2 class="text-2xl font-bold text-gray-900 dark:text-white">Users & Tokens</h2>
-                            <p class="mt-1 text-sm text-gray-600 dark:text-gray-400">Manage users and API tokens</p>
-                        </div>
+                    <div v-show="currentView === 'users'" class="flex flex-col h-full overflow-hidden">
+                        <div class="flex-1 overflow-y-auto p-4 lg:p-6">
+                            <div class="mb-6">
+                                <h2 class="text-2xl font-bold text-gray-900 dark:text-white">Users & Tokens</h2>
+                                <p class="mt-1 text-sm text-gray-600 dark:text-gray-400">Manage users and API tokens</p>
+                            </div>
                         
                         <!-- Tab Navigation -->
                         <div class="border-b border-gray-200 dark:border-gray-700 mb-6">
-                            <nav class="-mb-px flex space-x-8">
+                            <nav class="-mb-px flex space-x-4 lg:space-x-8 overflow-x-auto">
                                 <button
                                     @click="activeTab = 'users'"
                                     :class="[
-                                        'py-2 px-1 border-b-2 font-medium text-sm',
+                                        'py-2 px-1 border-b-2 font-medium text-sm whitespace-nowrap',
                                         activeTab === 'users'
                                             ? 'border-blue-500 text-blue-600 dark:text-blue-400'
                                             : 'border-transparent text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-300'
@@ -437,7 +476,7 @@
                                 <button
                                     @click="activeTab = 'tokens'"
                                     :class="[
-                                        'py-2 px-1 border-b-2 font-medium text-sm',
+                                        'py-2 px-1 border-b-2 font-medium text-sm whitespace-nowrap',
                                         activeTab === 'tokens'
                                             ? 'border-blue-500 text-blue-600 dark:text-blue-400'
                                             : 'border-transparent text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-300'
@@ -451,27 +490,27 @@
                         <!-- Users Tab -->
                         <div v-show="activeTab === 'users'">
                             <!-- Add User Form -->
-                            <div class="bg-white dark:bg-gray-800 rounded-lg shadow p-6 mb-6">
+                            <div class="bg-white dark:bg-gray-800 rounded-lg shadow p-4 lg:p-6 mb-6">
                                 <h3 class="text-lg font-medium text-gray-900 dark:text-white mb-4">Add New User</h3>
-                                <form @submit.prevent="addUser" class="grid grid-cols-1 md:grid-cols-3 gap-4">
+                                <form @submit.prevent="addUser" class="flex flex-col lg:flex-row gap-4">
                                     <input
                                         v-model="newUser.username"
                                         type="text"
                                         placeholder="Username"
                                         required
-                                        class="px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md bg-white dark:bg-gray-700 text-gray-900 dark:text-white"
+                                        class="flex-1 px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md bg-white dark:bg-gray-700 text-gray-900 dark:text-white"
                                     >
                                     <input
                                         v-model="newUser.password"
                                         type="password"
                                         placeholder="Password"
                                         required
-                                        class="px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md bg-white dark:bg-gray-700 text-gray-900 dark:text-white"
+                                        class="flex-1 px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md bg-white dark:bg-gray-700 text-gray-900 dark:text-white"
                                     >
                                     <button
                                         type="submit"
                                         :disabled="isAddingUser"
-                                        class="px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700 disabled:opacity-50"
+                                        class="px-6 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700 disabled:opacity-50 whitespace-nowrap"
                                     >
                                         {{ isAddingUser ? 'Adding...' : 'Add User' }}
                                     </button>
@@ -490,11 +529,11 @@
                                     <div
                                         v-for="user in users"
                                         :key="user.id"
-                                        class="px-6 py-4 flex items-center justify-between"
+                                        class="px-4 lg:px-6 py-4 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3"
                                     >
-                                        <div>
+                                        <div class="flex-1 min-w-0">
                                             <p class="text-sm font-medium text-gray-900 dark:text-white">{{ user.username }}</p>
-                                            <p class="text-sm text-gray-500 dark:text-gray-400">Created: {{ formatDate(user.created_at) }}</p>
+                                            <p class="text-sm text-gray-500 dark:text-gray-400 truncate">Created: {{ formatDate(user.created_at) }}</p>
                                         </div>
                                         <div class="flex space-x-2">
                                             <button
@@ -519,29 +558,35 @@
                         <!-- API Tokens Tab -->
                         <div v-show="activeTab === 'tokens'">
                             <!-- Generate Token Form -->
-                            <div class="bg-white dark:bg-gray-800 rounded-lg shadow p-6 mb-6">
+                            <div class="bg-white dark:bg-gray-800 rounded-lg shadow p-4 lg:p-6 mb-6">
                                 <h3 class="text-lg font-medium text-gray-900 dark:text-white mb-4">Generate API Token</h3>
-                                <form @submit.prevent="generateToken" class="grid grid-cols-1 md:grid-cols-3 gap-4">
-                                    <input
-                                        v-model="newToken.name"
-                                        type="text"
-                                        placeholder="Token Name"
-                                        required
-                                        class="px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md bg-white dark:bg-gray-700 text-gray-900 dark:text-white"
-                                    >
-                                    <select
-                                        v-model="newToken.expires_in"
-                                        class="px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md bg-white dark:bg-gray-700 text-gray-900 dark:text-white"
-                                    >
-                                        <option value="30">30 days</option>
-                                        <option value="90">90 days</option>
-                                        <option value="365">1 year</option>
-                                        <option value="0">Never expires</option>
-                                    </select>
+                                <form @submit.prevent="generateToken" class="flex flex-col sm:flex-row sm:items-end gap-3 sm:gap-4">
+                                    <div class="flex-1">
+                                        <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1 sm:hidden">Token Name</label>
+                                        <input
+                                            v-model="newToken.name"
+                                            type="text"
+                                            placeholder="Token Name"
+                                            required
+                                            class="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md bg-white dark:bg-gray-700 text-gray-900 dark:text-white text-sm sm:text-base"
+                                        >
+                                    </div>
+                                    <div class="flex-1 sm:flex-initial sm:min-w-[140px]">
+                                        <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1 sm:hidden">Expires In</label>
+                                        <select
+                                            v-model="newToken.expires_in"
+                                            class="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md bg-white dark:bg-gray-700 text-gray-900 dark:text-white text-sm sm:text-base"
+                                        >
+                                            <option value="30">30 days</option>
+                                            <option value="90">90 days</option>
+                                            <option value="365">1 year</option>
+                                            <option value="0">Never expires</option>
+                                        </select>
+                                    </div>
                                     <button
                                         type="submit"
                                         :disabled="isGeneratingToken"
-                                        class="px-4 py-2 bg-green-600 text-white rounded-md hover:bg-green-700 disabled:opacity-50"
+                                        class="w-full sm:w-auto px-4 py-2 bg-green-600 text-white rounded-md hover:bg-green-700 disabled:opacity-50 text-sm sm:text-base whitespace-nowrap"
                                     >
                                         {{ isGeneratingToken ? 'Generating...' : 'Generate Token' }}
                                     </button>
@@ -609,6 +654,7 @@
                                 </div>
                             </div>
                         </div>
+                        </div>
                     </div>
                 </main>
             </div>
@@ -638,6 +684,7 @@
                     // UI state
                     currentView: 'dashboard',
                     darkMode: localStorage.getItem('darkMode') === 'true',
+                    sidebarOpen: false, // Mobile sidebar state
                     
                     // Navigation
                     navigation: [
