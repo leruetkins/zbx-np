@@ -1,6 +1,3 @@
-// Prevents additional console window on Windows in release, DO NOT REMOVE!!
-#![cfg_attr(not(debug_assertions), windows_subsystem = "windows")]
-
 mod auth;
 mod api;
 
@@ -413,7 +410,8 @@ async fn validator(
     }
 }
 
-pub async fn run_server() -> std::io::Result<()> {
+#[actix_web::main]
+async fn main() -> std::io::Result<()> {
     println!("zbx-np {}. ©All rights in reserve.", APP_VERSION);
 
     let port = CONFIG_JSON["settings"]["http"]["port"].as_u64().unwrap_or(7000);
@@ -520,11 +518,6 @@ pub async fn run_server() -> std::io::Result<()> {
     })
         .bind(format!("0.0.0.0:{}", port))?
         .run().await
-}
-
-#[tokio::main]
-async fn main() -> std::io::Result<()> {
-    run_server().await
 }
 
 fn print_time_date() -> String {
