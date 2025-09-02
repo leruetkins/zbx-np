@@ -3,6 +3,10 @@ It's zabbix relay that can send data to your zabbix server using **POST** or **G
 
 **zbx-np** is configured to use **HiveMQ** (https://www.hivemq.com) broker by default. You can insert your credentials and settings in config.json. Other MQTT brokers (local or cloud) should also work. The application uses the **rumqtt** library (https://github.com/bytebeamio/rumqtt) which provides excellent performance and avoids OpenSSL compilation issues.
 
+
+<img width="944" height="740" alt="Screenshot_64" src="https://github.com/user-attachments/assets/10e6f994-58c4-420d-99db-a503e3aefdb7" />
+
+
 ## Features
 - ✅ **HTTP Data Ingestion**: Accept data via GET/POST requests
 - ✅ **MQTT Support**: Receive data from MQTT brokers using rumqtt
