@@ -4517,6 +4517,38 @@ dependencies = [
 ]
 
 [[package]]
+name = "tauri-plugin"
+version = "2.4.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "9946a3cede302eac0c6eb6c6070ac47b1768e326092d32efbb91f21ed58d978f"
+dependencies = [
+ "anyhow",
+ "glob",
+ "plist",
+ "schemars 0.8.22",
+ "serde",
+ "serde_json",
+ "tauri-utils",
+ "toml 0.9.5",
+ "walkdir",
+]
+
+[[package]]
+name = "tauri-plugin-window-state"
+version = "2.4.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "2d5f6fe3291bfa609c7e0b0ee3bedac294d94c7018934086ce782c1d0f2a468e"
+dependencies = [
+ "bitflags 2.9.4",
+ "log 0.4.27",
+ "serde",
+ "serde_json",
+ "tauri",
+ "tauri-plugin",
+ "thiserror 2.0.16",
+]
+
+[[package]]
 name = "tauri-runtime"
 version = "2.8.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -6113,6 +6145,20 @@ dependencies = [
  "uuid",
  "websocket",
  "winapi 0.3.9",
+]
+
+[[package]]
+name = "zbx-np-tauri"
+version = "0.1.0"
+dependencies = [
+ "lazy_static",
+ "serde",
+ "serde_json",
+ "tauri",
+ "tauri-build",
+ "tauri-plugin-window-state",
+ "tokio",
+ "zbx-np",
 ]
 
 [[package]]
