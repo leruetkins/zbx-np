@@ -1,1 +1,4 @@
-/target
+target/
+src-tauri/target/
+dist/
+*.log
