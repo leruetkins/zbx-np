@@ -11,7 +11,6 @@ use actix_web::{ get, post, web, App, HttpResponse, HttpServer, Result };
 use actix_web_httpauth::{ extractors::basic::BasicAuth, middleware::HttpAuthentication };
 use actix_cors::Cors;
 use chrono::Local;
-use chrono::Utc;
 use once_cell::sync::Lazy;
 use rumqttc::{AsyncClient, MqttOptions, QoS, Event, Packet, TlsConfiguration, Transport};
 use serde::{ Deserialize, Serialize };
@@ -25,12 +24,12 @@ use std::time::{Duration, Instant};
 use std::sync::{ Arc, Mutex };
 use std::thread;
 use tokio::time;
-use tokio::sync::oneshot;
 use websocket::sync::Server;
 use websocket::{ Message, OwnedMessage };
 use lazy_static::lazy_static;
 use websocket::sender::Writer;
 use std::sync::{ MutexGuard };
+use crossbeam_channel::{ unbounded, Sender, Receiver };
 
 // Import auth and API modules
 use auth::{ Stats };
@@ -69,7 +68,7 @@ fn create_default_config() -> std::io::Result<()> {
                 "id": 1,
                 "username": "admin",
                 "password": "admin",
-                "created_at": chrono::Utc::now().to_rfc3339()
+                "created_at": chrono::Local::now().to_rfc3339()
             }
         ]
     });
@@ -122,7 +121,7 @@ lazy_static! {
 
 // Global MQTT service handle
 lazy_static! {
-    static ref MQTT_HANDLE: Arc<Mutex<Option<tokio::sync::oneshot::Sender<()>>>> = Arc::new(Mutex::new(None));
+    static ref MQTT_HANDLE: Arc<Mutex<Option<Sender<()>>>> = Arc::new(Mutex::new(None));
 }
 
 // Global MQTT state tracking with comprehensive information
@@ -132,7 +131,7 @@ struct MqttState {
     status: String,
     url: String,
     topic: String,
-    last_updated: chrono::DateTime<chrono::Utc>,
+    last_updated: chrono::DateTime<chrono::Local>,
 }
 
 impl Default for MqttState {
@@ -142,7 +141,7 @@ impl Default for MqttState {
             status: "unknown".to_string(),
             url: String::new(),
             topic: String::new(),
-            last_updated: chrono::Utc::now(),
+            last_updated: chrono::Local::now(),
         }
     }
 }
@@ -194,7 +193,7 @@ fn send_websocket_message(msg_type: &str, data: serde_json::Value) {
     let message = json!({
         "type": msg_type,
         "data": data,
-        "timestamp": chrono::Utc::now().to_rfc3339()
+        "timestamp": chrono::Local::now().to_rfc3339()
     });
     
     if let Ok(message_str) = serde_json::to_string(&message) {
@@ -211,7 +210,7 @@ fn broadcast_mqtt_status(enabled: bool, status: &str, url: &str, topic: &str) {
         mqtt_state.status = status.to_string();
         mqtt_state.url = url.to_string();
         mqtt_state.topic = topic.to_string();
-        mqtt_state.last_updated = chrono::Utc::now();
+        mqtt_state.last_updated = chrono::Local::now();
         println!("DEBUG: Updating MQTT state: enabled={}, status='{}', url='{}'", enabled, status, url);
     }
     
@@ -240,7 +239,7 @@ fn send_current_mqtt_status_to_client(client_sender: &Arc<Mutex<Writer<TcpStream
             "url": mqtt_state.url,
             "topic": mqtt_state.topic
         },
-        "timestamp": chrono::Utc::now().to_rfc3339()
+        "timestamp": chrono::Local::now().to_rfc3339()
     });
     
     if let Ok(message_str) = serde_json::to_string(&status_message) {
@@ -430,7 +429,7 @@ pub async fn run_server() -> std::io::Result<()> {
         mqtt_state.url = mqtt_url.to_string();
         mqtt_state.topic = mqtt_topic.to_string();
         mqtt_state.status = if mqtt_enable { "starting".to_string() } else { "disabled".to_string() };
-        mqtt_state.last_updated = chrono::Utc::now();
+        mqtt_state.last_updated = chrono::Local::now();
         println!("DEBUG: Initial MQTT state initialized: enabled={}, status='{}'", mqtt_enable, mqtt_state.status);
     }
     
@@ -445,7 +444,7 @@ pub async fn run_server() -> std::io::Result<()> {
     // Start MQTT client in background if enabled
     if mqtt_enable {
         let stats_clone = app_state.stats.clone();
-        let (shutdown_tx, shutdown_rx) = tokio::sync::oneshot::channel();
+        let (shutdown_tx, shutdown_rx): (Sender<()>, Receiver<()>) = unbounded();
         
         // Store the shutdown handle
         {
@@ -548,7 +547,8 @@ async fn zabbix_handler(req: HttpRequest, query: web::Query<UrlQuery>) -> HttpRe
         } else {
             println!("Unable to extract the IP address");
         }
-    } else {
+    }
+    else {
         println!("Unable to retrieve the remote IP address");
     }
     
@@ -613,7 +613,8 @@ async fn zabbix_post_handler(req: HttpRequest, body: web::Json<Data>) -> HttpRes
         } else {
             println!("Unable to extract the IP address");
         }
-    } else {
+    }
+    else {
         println!("Unable to retrieve the remote IP address");
     }
     let response_json =
@@ -723,7 +724,7 @@ fn send_to_zabbix(response_json: &str) -> Result<String, std::io::Error> {
     Ok(show_result) // Return the show_result value
 }
 
-async fn mqtt_connect(stats: Arc<Mutex<Stats>>, mut shutdown_rx: tokio::sync::oneshot::Receiver<()>) -> Result<(), Box<dyn std::error::Error>> {
+async fn mqtt_connect(stats: Arc<Mutex<Stats>>, shutdown_rx: Receiver<()>) -> Result<(), Box<dyn std::error::Error>> {
     // Read config from file to get latest settings
     let config_content = std::fs::read_to_string("config.json")?;
     let config: serde_json::Value = serde_json::from_str(&config_content)?;
@@ -803,16 +804,17 @@ async fn mqtt_connect(stats: Arc<Mutex<Stats>>, mut shutdown_rx: tokio::sync::on
 
     // Handle MQTT events with shutdown capability
     loop {
+        // Use a non-blocking receive with a timeout or poll in a loop
+        // for crossbeam_channel. Here, we'll just check if a message is available.
+        if let Ok(_) = shutdown_rx.try_recv() {
+            println!("MQTT: Received shutdown signal, disconnecting...");
+            add_message("MQTT: Service stopped by configuration change".to_string());
+            // Broadcast stopped status
+            broadcast_mqtt_status(false, "stopped", &host, zabbix_topic);
+            return Ok(());
+        }
+
         tokio::select! {
-            // Check for shutdown signal
-            _ = &mut shutdown_rx => {
-                println!("MQTT: Received shutdown signal, disconnecting...");
-                add_message("MQTT: Service stopped by configuration change".to_string());
-                // Broadcast stopped status
-                broadcast_mqtt_status(false, "stopped", &host, zabbix_topic);
-                return Ok(());
-            }
-            
             // Handle MQTT events
             event = eventloop.poll() => {
                 match event {

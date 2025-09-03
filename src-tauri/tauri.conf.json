@@ -13,11 +13,11 @@
     "windows": [
       {
         "title": "zbx-np Tauri",
-        "width": 800,
-        "height": 600,
         "resizable": true,
         "fullscreen": false,
-        "url": "http://localhost:7000/console"
+        "url": "http://localhost:7000/console",
+        "label": "main",
+        "visible": false
       }
     ],
     "security": {

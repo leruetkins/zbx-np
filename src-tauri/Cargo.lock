@@ -6131,6 +6131,7 @@ dependencies = [
  "actix-web-httpauth",
  "base64 0.13.1",
  "chrono",
+ "crossbeam-channel",
  "futures 0.3.31",
  "glob",
  "lazy_static",

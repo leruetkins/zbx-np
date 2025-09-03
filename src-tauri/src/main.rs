@@ -17,7 +17,7 @@ fn main() {
 
     let app = tauri::Builder::default()
         .plugin(tauri_plugin_window_state::Builder::default().build()) // <-- Добавляем плагин здесь
-        .setup(move |app| { // Используем move, чтобы захватить server_process_handle
+        .setup(move |_app| { // Используем move, чтобы захватить server_process_handle
             #[cfg(not(debug_assertions))] // Only execute in release mode
             {
                 // Запуск сервера, предполагая, что он находится рядом с исполняемым файлом Tauri
@@ -37,6 +37,8 @@ fn main() {
                 // Сохраняем дескриптор процесса
                 *server_process_handle.lock().unwrap() = Some(child_process);
             }
+            let main_window = _app.get_webview_window("main").unwrap();
+            main_window.show().unwrap();
             Ok(())
         })
         .on_window_event(move |window, event| { // Используем on_window_event и move

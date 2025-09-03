@@ -5,7 +5,8 @@ use crate::auth::{Stats, Config, HttpConfig, MqttConfig, LoginRequest, LoginResp
 use uuid::Uuid;
 use std::fs;
 use chrono;
-use tokio::sync::oneshot;
+// use tokio::sync::oneshot;
+use crossbeam_channel::{ unbounded, Sender, Receiver };
 
 // Helper functions for config file management
 fn read_config() -> std::result::Result<serde_json::Value, Box<dyn std::error::Error>> {
@@ -288,7 +289,7 @@ async fn restart_mqtt_service(enabled: bool, stats: Arc<Mutex<Stats>>) -> std::r
         // Broadcast starting status immediately
         crate::broadcast_mqtt_status(true, "starting", &mqtt_url, &mqtt_topic);
         
-        let (shutdown_tx, shutdown_rx) = oneshot::channel();
+        let (shutdown_tx, shutdown_rx): (Sender<()>, Receiver<()>) = unbounded();
         
         // Store the new shutdown handle
         {
@@ -366,7 +367,7 @@ pub async fn create_user(data: web::Json<serde_json::Value>) -> Result<HttpRespo
         id: get_next_user_id(),
         username: username.to_string(),
         password: password.to_string(),
-        created_at: chrono::Utc::now().to_rfc3339(),
+        created_at: chrono::Local::now().to_rfc3339(),
     };
     
     // Read current config, add user, and save
@@ -526,7 +527,7 @@ pub async fn create_token(data: web::Json<serde_json::Value>) -> Result<HttpResp
     // Generate token
     let token = format!("zbx_{}", Uuid::new_v4().to_string().replace("-", ""));
     let expires_at = if expires_in > 0 {
-        Some(chrono::Utc::now() + chrono::Duration::days(expires_in as i64))
+        Some(chrono::Local::now() + chrono::Duration::days(expires_in as i64))
     } else {
         None
     };
@@ -536,7 +537,7 @@ pub async fn create_token(data: web::Json<serde_json::Value>) -> Result<HttpResp
         id: get_next_token_id(),
         name: name.to_string(),
         token: token.clone(),
-        created_at: chrono::Utc::now().to_rfc3339(),
+        created_at: chrono::Local::now().to_rfc3339(),
         expires_at: expires_at.map(|d| d.to_rfc3339()),
         is_active: true,
     };

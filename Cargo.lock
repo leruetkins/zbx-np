@@ -6092,13 +6092,14 @@ dependencies = [
 
 [[package]]
 name = "zbx-np"
-version = "0.7.0"
+version = "0.9.0"
 dependencies = [
  "actix-cors",
  "actix-web",
  "actix-web-httpauth",
  "base64 0.13.1",
  "chrono",
+ "crossbeam-channel",
  "futures 0.3.31",
  "glob",
  "lazy_static",

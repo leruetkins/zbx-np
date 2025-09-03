@@ -77,8 +77,3 @@ pub struct LoginResponse {
     pub success: bool,
     pub message: String,
 }
-
-// Simple auth check function
-pub fn authenticate_simple(username: &str, password: &str, config_user: &str, config_pass: &str) -> bool {
-    username == config_user && password == config_pass
-}
