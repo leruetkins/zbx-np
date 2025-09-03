@@ -283,13 +283,23 @@
                                 <h3 class="text-lg font-medium text-gray-900 dark:text-white">Real-time Activity</h3>
                             </div>
                             <div class="flex-1 p-4 overflow-hidden">
-                                <div class="h-full overflow-y-auto bg-gray-50 dark:bg-gray-700 rounded p-4 font-mono text-xs lg:text-sm">
+                                <div ref="consoleContainer" class="h-full overflow-y-auto bg-gray-50 dark:bg-gray-700 rounded p-4 font-mono text-xs lg:text-sm">
                                     <div v-if="messages.length === 0" class="text-gray-500 dark:text-gray-400">
                                         No messages yet...
                                     </div>
-                                    <div v-for="(message, index) in messages.slice(0, 20)" :key="index" class="mb-1 text-gray-800 dark:text-gray-200 break-words" style="line-height: 1.4;">
-                                        {{ message }}
-                                    </div>
+                                    <template v-for="(message, index) in messages" :key="index">
+                                        <!-- Check if message is a timestamp -->
+                                        <div v-if="isTimestampMessage(message)" class="mt-3 first:mt-0">
+                                            <span class="inline-flex items-center px-1.5 py-0.5 text-xs font-mono text-gray-600 bg-gray-100 dark:bg-gray-600 dark:text-gray-200 rounded text-nowrap">
+                                                <span class="mr-2">#{{ getRequestNumber(index) }}</span>
+                                                <span>{{ formatTimestamp(message) }}</span>
+                                            </span>
+                                        </div>
+                                        <!-- Regular message without number -->
+                                        <div v-else class="mb-1 text-gray-800 dark:text-gray-200 break-words" style="line-height: 1.4;">
+                                            {{ message }}
+                                        </div>
+                                    </template>
                                 </div>
                             </div>
                         </div>
@@ -968,6 +978,7 @@
 
                 // WebSocket methods
                 initWebSocket() {
+                    // Use port 2794 for WebSocket connection as in the Rust version
                     const protocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
                     const host = window.location.hostname;
                     const wsUrl = `${protocol}//${host}:2794`;
@@ -990,16 +1001,24 @@
                                     this.mqttStatus = message.data;
                                     console.log('MQTT status updated via WebSocket:', this.mqttStatus);
                                 } else {
-                                    // Handle other structured messages
+                                    // Handle other structured messages - display them in the console
                                     console.log('Received structured message:', message);
+                                    // Add to messages for display in Real-time Activity
+                                    const messageStr = JSON.stringify(message, null, 2);
+                                    this.messages.push(messageStr);
+                                    if (this.messages.length > 150) {  // Increased from 100 to 150
+                                        this.messages = this.messages.slice(-150);  // Keep the last 150 messages
+                                    }
+                                    this.scrollToBottom(); // Scroll to bottom for new messages
                                 }
                             } catch (e) {
                                 // Handle plain text messages (legacy format)
                                 if (event.data.trim()) {
-                                    this.messages.unshift(event.data);
-                                    if (this.messages.length > 100) {
-                                        this.messages = this.messages.slice(0, 100);
+                                    this.messages.push(event.data);
+                                    if (this.messages.length > 150) {  // Increased from 100 to 150
+                                        this.messages = this.messages.slice(-150);  // Keep the last 150 messages
                                     }
+                                    this.scrollToBottom(); // Scroll to bottom for new messages
                                 }
                             }
                         };
@@ -1033,6 +1052,37 @@
                     } else {
                         document.documentElement.classList.remove('dark');
                     }
+                },
+
+                isTimestampMessage(message) {
+                    // Check if message matches the timestamp pattern [HH:MM:SS DD-MM-YYYY]
+                    const timestampRegex = /^\[\d{2}:\d{2}:\d{2} \d{2}-\d{2}-\d{4}\]$/;
+                    return timestampRegex.test(message);
+                },
+
+                formatTimestamp(message) {
+                    // Extract and format the timestamp
+                    // Remove the brackets and return just the timestamp
+                    return message.slice(1, -1);
+                },
+
+                getRequestNumber(timestampIndex) {
+                    // Count the number of timestamp messages up to and including this one
+                    let requestCount = 0;
+                    for (let i = 0; i <= timestampIndex; i++) {
+                        if (this.isTimestampMessage(this.messages[i])) {
+                            requestCount++;
+                        }
+                    }
+                    return requestCount;
+                },
+
+                scrollToBottom() {
+                    this.$nextTick(() => {
+                        if (this.$refs.consoleContainer) {
+                            this.$refs.consoleContainer.scrollTop = this.$refs.consoleContainer.scrollHeight;
+                        }
+                    });
                 },
 
                 formatDate(dateString) {
