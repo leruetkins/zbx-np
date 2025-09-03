@@ -15,6 +15,7 @@ It's zabbix relay that can send data to your zabbix server using **POST** or **G
 - ✅ **Auto-Reconnection**: Intelligent reconnection with exponential backoff
 - ✅ **Real-time Monitoring**: WebSocket-based real-time activity feed
 - ✅ **Configuration Management**: Web-based configuration editor
+- ✅ **Tauri Desktop App**: Single executable with embedded server
 
 ## MQTT Configuration with rumqtt
 
@@ -132,6 +133,38 @@ zbx-np now includes a modern web interface for monitoring and configuration:
 - `GET /api/stats` - Get system statistics
 - `GET /api/logs` - Get application logs
 - `WebSocket :2794` - Real-time activity feed
+
+# Tauri Desktop Application
+
+zbx-np includes a Tauri-based desktop application that bundles the server and provides a native UI experience. The Tauri app automatically starts the server and displays the web interface in a native window.
+
+## Building the Tauri Application
+
+Several batch scripts are provided to simplify building and running the Tauri application:
+
+1. **[build-tauri-with-server.bat](file:///d:/Naben/Github/rust/zbx-np/build-tauri-with-server.bat)** - Builds the server and Tauri application
+2. **[build-and-bundle.bat](file:///d:/Naben/Github/rust/zbx-np/build-and-bundle.bat)** - Builds the server, Tauri application, and creates installable bundles (MSI/NSIS)
+3. **[run-tauri.bat](file:///d:/Naben/Github/rust/zbx-np/run-tauri.bat)** - Runs the Tauri application
+4. **[dev-mode.bat](file:///d:/Naben/Github/rust/zbx-np/dev-mode.bat)** - Runs in development mode
+
+### Building Process
+
+1. The server binary is compiled first (`zbx-np-server.exe`)
+2. The server binary is embedded into the Tauri application as a resource
+3. The Tauri application is built, which will extract and run the embedded server when launched
+
+### Running the Application
+
+After building, you can run the Tauri application directly:
+```
+src-tauri\target\release\zbx-np-tauri.exe
+```
+
+The application will automatically:
+1. Extract the embedded server binary to its directory
+2. Start the zbx-np server
+3. Display the web interface in a native window
+4. Clean up the extracted binary when closed
 
 # Installation
 

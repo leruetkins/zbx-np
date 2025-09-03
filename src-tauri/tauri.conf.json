@@ -34,8 +34,6 @@
       "icons/icon.icns",
       "icons/icon.ico"
     ],
-    "resources": [
-      "../target/release/zbx-np-server.exe"
-    ]
+    "resources": []
   }
 }
